@@ -4,6 +4,14 @@ import numpy as np
 class RefereeAnalyzer:
     def __init__(self, df):
         self.df = df.copy()
+        
+        # Coalesce 'Ref' into 'Referee' if it exists (Common mismatch in data sources)
+        if 'Ref' in self.df.columns:
+            if 'Referee' in self.df.columns:
+                self.df['Referee'] = self.df['Referee'].fillna(self.df['Ref'])
+            else:
+                self.df['Referee'] = self.df['Ref']
+        
         # Ensure Referee column exists and is clean
         if 'Referee' in self.df.columns:
             self.df = self.df.dropna(subset=['Referee'])
