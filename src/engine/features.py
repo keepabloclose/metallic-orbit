@@ -303,6 +303,17 @@ class FeatureEngineer:
         eps = 0.01
         
         # Attack vs Defense Ratios
+        # Check if columns exist (Cloud data might miss HST/AST for some leagues)
+        if 'HomeAvgShotsTargetFor' not in self.df.columns:
+            self.df['HomeAvgShotsTargetFor'] = 3.5 # Moderate Default
+        if 'AwayAvgShotsTargetAgainst' not in self.df.columns:
+            self.df['AwayAvgShotsTargetAgainst'] = 3.5
+            
+        if 'AwayAvgShotsTargetFor' not in self.df.columns:
+            self.df['AwayAvgShotsTargetFor'] = 3.5
+        if 'HomeAvgShotsTargetAgainst' not in self.df.columns:
+            self.df['HomeAvgShotsTargetAgainst'] = 3.5
+
         # Home Attack vs Away Defense (using shots on target as a proxy for "Threat")
         self.df['HomeAttackStrength'] = self.df['HomeAvgShotsTargetFor'] / (self.df['AwayAvgShotsTargetAgainst'] + eps)
         self.df['AwayAttackStrength'] = self.df['AwayAvgShotsTargetFor'] / (self.df['HomeAvgShotsTargetAgainst'] + eps)
