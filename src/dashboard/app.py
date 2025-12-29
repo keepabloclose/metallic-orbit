@@ -1019,13 +1019,15 @@ with tab4:
                 }).background_gradient(subset=['Tasa Acierto %', 'ROI (Retorno)'], cmap='RdYlGn'),
                 use_container_width=True
             )
+
+            # Deep dive (Moved inside to prevent KeyError if empty)
+            st.divider()
+            pattern_select = st.selectbox("Seleccionar Patrón para Inspeccionar", summary['pattern_name'].unique())
+            if pattern_select:
+                st.dataframe(details[pattern_select])
+
         else:
             st.warning("No se encontraron coincidencias para las estrategias seleccionadas.")
-        
-        # Deep dive
-        pattern_select = st.selectbox("Seleccionar Patrón para Inspeccionar", summary['pattern_name'].unique())
-        if pattern_select:
-            st.dataframe(details[pattern_select])
 
 # --- TAB 5: Trends & Streaks (Match View Style) ---
 with tab5:
