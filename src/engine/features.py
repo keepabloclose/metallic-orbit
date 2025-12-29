@@ -295,47 +295,45 @@ class FeatureEngineer:
         """
         Calculates Relative Strength metrics.
         Example: Home Attack Strength = HomeAvgGoalsFor / LeagueAvgGoalsFor
+        Safeguarded against missing columns for Cloud Deployment.
         """
-        # This is a simplified version. A proper model might use Dixon-Coles or detailed Ratings.
-        # For now, we use the rolling averages ratio.
-        
+        # Feature Dependencies
+        required_cols = [
+            'HomeAvgShotsTargetFor', 'AwayAvgShotsTargetAgainst',
+            'AwayAvgShotsTargetFor', 'HomeAvgShotsTargetAgainst',
+            'HomeAvgGoalsFor', 'AwayAvgGoalsAgainst',
+            'AwayAvgGoalsFor', 'HomeAvgGoalsAgainst',
+            'HomePPG', 'AwayPPG'
+        ]
+
+        # Initialize missing columns with defaults to prevent Crash
+        for col in required_cols:
+            if col not in self.df.columns:
+                print(f"Warning: Missing column {col}, using default.")
+                self.df[col] = 1.35 if 'PPG' in col else (3.5 if 'Shots' in col else 1.2)
+
         # Avoid division by zero
         eps = 0.01
         
         # Attack vs Defense Ratios
-        # Check if columns exist (Cloud data might miss HST/AST for some leagues)
-        if 'HomeAvgShotsTargetFor' not in self.df.columns:
-            self.df['HomeAvgShotsTargetFor'] = 3.5 # Moderate Default
-        if 'AwayAvgShotsTargetAgainst' not in self.df.columns:
-            self.df['AwayAvgShotsTargetAgainst'] = 3.5
-            
-        if 'AwayAvgShotsTargetFor' not in self.df.columns:
-            self.df['AwayAvgShotsTargetFor'] = 3.5
-        if 'HomeAvgShotsTargetAgainst' not in self.df.columns:
-            self.df['HomeAvgShotsTargetAgainst'] = 3.5
-
         # Home Attack vs Away Defense (using shots on target as a proxy for "Threat")
         self.df['HomeAttackStrength'] = self.df['HomeAvgShotsTargetFor'] / (self.df['AwayAvgShotsTargetAgainst'] + eps)
         self.df['AwayAttackStrength'] = self.df['AwayAvgShotsTargetFor'] / (self.df['HomeAvgShotsTargetAgainst'] + eps)
         
         # Interaction Features (User Request for Context):
         # 1. Expected Goals Proxy: Offense * Opponent Defense
-        # Check if Goals columns exist
-        if 'HomeAvgGoalsFor' in self.df.columns and 'AwayAvgGoalsAgainst' in self.df.columns:
-            self.df['HomeExpG_Raw'] = self.df['HomeAvgGoalsFor'] * self.df['AwayAvgGoalsAgainst']
-        else:
-            self.df['HomeExpG_Raw'] = 1.0 # Default
-
-        if 'AwayAvgGoalsFor' in self.df.columns and 'HomeAvgGoalsAgainst' in self.df.columns:
-            self.df['AwayExpG_Raw'] = self.df['AwayAvgGoalsFor'] * self.df['HomeAvgGoalsAgainst']
-        else:
-            self.df['AwayExpG_Raw'] = 1.0
-
+        self.df['HomeExpG_Raw'] = self.df['HomeAvgGoalsFor'] * self.df['AwayAvgGoalsAgainst']
+        self.df['AwayExpG_Raw'] = self.df['AwayAvgGoalsFor'] * self.df['HomeAvgGoalsAgainst']
+        
         # 2. Top Clash Indicator
         # High PPG vs High PPG
         self.df['IsTopClash'] = ((self.df['HomePPG'] > 1.7) & (self.df['AwayPPG'] > 1.7)).astype(int)
         
         # 3. Defensive Lock
+        # Low Goals Against for both
+        self.df['DefensiveLock'] = ((self.df['HomeAvgGoalsAgainst'] < 1.0) & (self.df['AwayAvgGoalsAgainst'] < 1.0)).astype(int)
+
+        return self.df
         # Low Conceded vs Low Conceded
         self.df['IsDefensiveLock'] = ((self.df['HomeAvgGoalsAgainst'] < 1.0) & (self.df['AwayAvgGoalsAgainst'] < 1.0)).astype(int)
 
