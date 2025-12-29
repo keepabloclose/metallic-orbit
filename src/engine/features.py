@@ -320,10 +320,17 @@ class FeatureEngineer:
         
         # Interaction Features (User Request for Context):
         # 1. Expected Goals Proxy: Offense * Opponent Defense
-        # (Normalization usually required, but for Tree models raw Scale is fine)
-        self.df['HomeExpG_Raw'] = self.df['HomeAvgGoalsFor'] * self.df['AwayAvgGoalsAgainst']
-        self.df['AwayExpG_Raw'] = self.df['AwayAvgGoalsFor'] * self.df['HomeAvgGoalsAgainst']
-        
+        # Check if Goals columns exist
+        if 'HomeAvgGoalsFor' in self.df.columns and 'AwayAvgGoalsAgainst' in self.df.columns:
+            self.df['HomeExpG_Raw'] = self.df['HomeAvgGoalsFor'] * self.df['AwayAvgGoalsAgainst']
+        else:
+            self.df['HomeExpG_Raw'] = 1.0 # Default
+
+        if 'AwayAvgGoalsFor' in self.df.columns and 'HomeAvgGoalsAgainst' in self.df.columns:
+            self.df['AwayExpG_Raw'] = self.df['AwayAvgGoalsFor'] * self.df['HomeAvgGoalsAgainst']
+        else:
+            self.df['AwayExpG_Raw'] = 1.0
+
         # 2. Top Clash Indicator
         # High PPG vs High PPG
         self.df['IsTopClash'] = ((self.df['HomePPG'] > 1.7) & (self.df['AwayPPG'] > 1.7)).astype(int)
