@@ -1,3 +1,4 @@
+
 def cond_home_dominant(row):
     """
     Local Dominante (Versión Pro):
@@ -116,6 +117,56 @@ def cond_cards_battle(row):
         
     return ref_strict and fouls_high
 
+# --- NEW PATTERNS (Shots, Corners, Cards Enhanced) ---
+
+def cond_high_shots_volume(row):
+    """
+    Lluvia de Tiros (>25):
+    Equipos que disparan mucho y conceden mucho.
+    Total Tiros proyectado > 25.
+    """
+    # Requires Shot Data: HS (HomeShots), AS (AwayShots) -> Avg
+    # Features usually rely on 'HomeAvgShotsFor', 'AwayAvgShotsFor'
+    h_s = row.get('HomeAvgShotsFor', 0) + row.get('AwayAvgShotsAgainst', 0)
+    a_s = row.get('AwayAvgShotsFor', 0) + row.get('HomeAvgShotsAgainst', 0)
+    
+    # Average expected shots for Home and Away
+    exp_shots_total = (h_s/2) + (a_s/2)
+    return exp_shots_total > 25
+
+def cond_high_sot_sniper(row):
+    """
+    Francotiradores (Tiros a Puerta > 9.5):
+    Alta precisión ofensiva.
+    """
+    # Shots on Target
+    h_st = row.get('HomeAvgShotsTargetFor', 0) + row.get('AwayAvgShotsTargetAgainst', 0)
+    a_st = row.get('AwayAvgShotsTargetFor', 0) + row.get('HomeAvgShotsTargetAgainst', 0)
+    
+    exp_sot_total = (h_st/2) + (a_st/2)
+    return exp_sot_total > 9.5
+
+def cond_corner_fest(row):
+    """
+    Fiesta de Córners (>10.5):
+    Equipos verticales, muchos centros, defensas despejadoras.
+    """
+    # Corners
+    h_c = row.get('HomeAvgCornersFor', 0) + row.get('AwayAvgCornersAgainst', 0)
+    a_c = row.get('AwayAvgCornersFor', 0) + row.get('HomeAvgCornersAgainst', 0)
+    
+    exp_corners = (h_c/2) + (a_c/2)
+    return exp_corners > 10.5
+
+def cond_card_heavy_strict(row):
+    """
+    Carnicería (Tarjetas > 5.5) Extreme:
+    Arbitro muy estricto (>5.0) y equipos agresivos.
+    """
+    ref_strict = row.get('RefAvgCards', 4.0) > 5.0
+    team_aggr = (row.get('HomeAvgCardsFor', 0) + row.get('AwayAvgCardsFor', 0)) > 5.0
+    return ref_strict and team_aggr 
+
 # --- Targets defined for Backtesting ---
 
 def target_home_win(row): return row['FTHG'] > row['FTAG']
@@ -124,6 +175,14 @@ def target_over_25(row): return (row['FTHG'] + row['FTAG']) > 2.5
 def target_over_15(row): return (row['FTHG'] + row['FTAG']) > 1.5
 def target_btts(row): return (row['FTHG'] > 0) and (row['FTAG'] > 0)
 
+# New Targets
+def target_shots_25(row): return (row.get('HS',0) + row.get('AS',0)) > 25
+def target_sot_9(row): return (row.get('HST',0) + row.get('AST',0)) > 9.5
+def target_corn_10(row): return (row.get('HC',0) + row.get('AC',0)) > 10.5
+def target_cards_55(row): 
+    cards = row.get('HY',0) + row.get('AY',0) + row.get('HR',0) + row.get('AR',0)
+    return cards > 5.5
+
 # --- Registry ---
 
 PREMATCH_PATTERNS = [
@@ -131,6 +190,12 @@ PREMATCH_PATTERNS = [
     ("Festival de Goles (>2.5)", cond_goal_fest_strict, target_over_25, "B365>2.5"),
     ("Seguro de Gol (>1.5)", cond_over_15_safe, target_over_15, "B365>1.5"), 
     ("Cazando Tigres de Papel (Lay Visitante)", cond_paper_tiger_away, target_home_win, "B365H"),
-    ("Batalla de Tarjetas (>3.5)", cond_cards_battle, lambda r: (r['HY']+r['AY']+r['HR']+r['AR']) > 3.5, "B365>3.5"),
-    ("Ambos Marcan (BTTS)", cond_btts_high, target_btts, "B365GG")
+    ("Batalla de Tarjetas (>3.5)", cond_cards_battle, lambda r: (r.get('HY',0)+r.get('AY',0)+r.get('HR',0)+r.get('AR',0)) > 3.5, "B365>3.5"),
+    ("Ambos Marcan (BTTS)", cond_btts_high, target_btts, "B365GG"),
+    
+    # New Patterns (No Odds usually available, so no ROI calc)
+    ("Lluvia de Tiros (>25)", cond_high_shots_volume, target_shots_25, None),
+    ("Francotiradores (SoT > 9.5)", cond_high_sot_sniper, target_sot_9, None),
+    ("Fiesta de Córners (>10.5)", cond_corner_fest, target_corn_10, None),
+    ("Carnicería (Tarjetas > 5.5)", cond_card_heavy_strict, target_cards_55, None)
 ]
