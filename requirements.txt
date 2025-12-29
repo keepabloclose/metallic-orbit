@@ -1,0 +1,12 @@
+pandas
+numpy
+requests
+openpyxl
+xlsxwriter
+matplotlib
+soccerdata
+lxml
+html5lib
+streamlit
+plotly
+scikit-learn
