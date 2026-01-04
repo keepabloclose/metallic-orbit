@@ -60,7 +60,7 @@ class MetricOrbitTestSuite(unittest.TestCase):
     def test_prediction_output(self):
         print("\n--- TEST: Prediction ---")
         # Test known match
-        pred = self.predictor.predict_match('Sunderland', 'Leeds')
+        pred = self.predictor.predict_match_safe('Sunderland', 'Leeds')
         print("Sunderland vs Leeds Pred:", pred)
         self.assertIsNotNone(pred, "Prediction returned None")
         self.assertIn('REG_HomeGoals', pred, "Missing REG_HomeGoals")
@@ -68,7 +68,7 @@ class MetricOrbitTestSuite(unittest.TestCase):
         # Note: 0 is possible, but 'always 0' was the bug.
 
         # Test name normalization
-        pred_norm = self.predictor.predict_match('Spurs', 'Man Utd')
+        pred_norm = self.predictor.predict_match_safe('Spurs', 'Man Utd')
         print("Spurs vs Man Utd Pred:", pred_norm)
         self.assertIn('REG_HomeGoals', pred_norm)
 

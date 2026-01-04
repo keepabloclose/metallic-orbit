@@ -16,15 +16,13 @@ from src.data.cups import CupLoader
 from src.dashboard.match_view import render_match_details
 import src.dashboard.match_view
 import src.engine.predictor
+import importlib
 import src.engine.features
 import src.engine.ml_engine
-
-# Force reload of features module to pick up definition changes
-# import importlib
-# importlib.reload(src.engine.features)
-# importlib.reload(src.engine.ml_engine) # CRITICAL: Reload this first
-# importlib.reload(src.engine.predictor)
-# importlib.reload(src.dashboard.match_view)
+import src.engine.predictor
+importlib.reload(src.engine.features)
+importlib.reload(src.engine.ml_engine)
+importlib.reload(src.engine.predictor)
 
 from src.engine.features import FeatureEngineer
 from src.engine.patterns import PatternAnalyzer
@@ -78,7 +76,7 @@ def fetch_upcoming_cached(leagues):
     return fetcher.fetch_upcoming(leagues)
 
 @st.cache_resource
-def get_predictor(data):
+def get_predictor(data, version=3):
     return Predictor(data)
 
 @st.cache_data(ttl=3600) # Cache for 1 hour
@@ -114,7 +112,7 @@ st.title("⚽ Analizador de Valor en Apuestas Deportivas")
 # Sidebar - Configuration
 st.sidebar.header("Configuración")
 # Added N1 (Netherlands), B1 (Belgium), E1 (Championship) to cover expanded fixtures
-league_options = ['SP1', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1']
+league_options = ['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1']
 league_names = {
     'SP1': 'La Liga (España)',
     'E0': 'Premier League (Inglaterra)',
@@ -123,12 +121,13 @@ league_names = {
     'I1': 'Serie A (Italia)',
     'F1': 'Ligue 1 (Francia)',
     'P1': 'Liga Portugal',
-    'N1': 'Eredivisie'
+    'N1': 'Eredivisie',
+    'SP2': 'La Liga 2 (España)'
 }
 leagues = st.sidebar.multiselect(
     "Ligas", 
     league_options, 
-    default=['SP1', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1'], 
+    default=['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1'], 
     format_func=lambda x: league_names.get(x, x)
 )
 # User Request: Default last 5 seasons
@@ -138,9 +137,7 @@ if st.sidebar.button("Recargar Datos"):
     st.cache_data.clear()
     st.rerun()
 
-@st.cache_resource
-def get_predictor(data):
-    return Predictor(data)
+
 
 # Call with version 3 to match definition and bust cache
 data = load_data(leagues, seasons, version=3)
@@ -334,7 +331,15 @@ with tab1:
                 # Convert 'Date' column to datetime objects for comparison
                 # Date format usually 'dd/mm/yyyy' from football-data/fixtures
                 try:
-                    upcoming['DateObj'] = pd.to_datetime(upcoming['Date'], dayfirst=True).dt.date
+                    # Robust Date Parsing
+                    # 1. Coerce to datetime (handles various formats)
+                    # 2. Extract date component
+                    upcoming['DateObj'] = pd.to_datetime(upcoming['Date'], errors='coerce', dayfirst=True).dt.date
+                    
+                    # Drop invalid dates if any
+                    upcoming = upcoming.dropna(subset=['DateObj'])
+                    
+                    # Filter
                     upcoming = upcoming[
                         (upcoming['DateObj'] >= start_date) & 
                         (upcoming['DateObj'] <= end_date)
@@ -434,7 +439,13 @@ with tab1:
                 # Process all matches first
                 all_preds = []
                 for idx, match in upcoming.iterrows():
-                    row = predictor.predict_match(match['HomeTeam'], match['AwayTeam'])
+                    # Enhanced Prediction (Pass full context to avoid 0-0/Mismatch)
+                    row = predictor.predict_match_safe(
+                        match['HomeTeam'], 
+                        match['AwayTeam'], 
+                        match_date=match.get('Date'),
+                        referee=match.get('Referee')
+                    )
                     
                     # Prepare display data even if prediction fails
                     display_row = match.to_dict()
@@ -467,7 +478,7 @@ with tab1:
                         grouped_preds = preds_df.groupby('Div')
                         
                         flags_map_emoji = {
-                            'SP1': '🇪🇸', 'E0': '🇬🇧', 'D1': '🇩🇪', 'I1': '🇮🇹', 'F1': '🇫🇷', 'P1': '🇵🇹', 'N1': '🇳🇱'
+                            'SP1': '🇪🇸', 'SP2': '🇪🇸', 'E0': '🇬🇧', 'E1': '🇬🇧', 'D1': '🇩🇪', 'I1': '🇮🇹', 'F1': '🇫🇷', 'P1': '🇵🇹', 'N1': '🇳🇱'
                         }
                         
                         for div, group in grouped_preds:
@@ -663,7 +674,7 @@ with tab1:
                         grouped = md_df.groupby('Div')
                         
                         flags_map_emoji = {
-                            'SP1': '🇪🇸', 'E0': '🇬🇧', 'D1': '🇩🇪', 'I1': '🇮🇹', 'F1': '🇫🇷', 'P1': '🇵🇹', 'N1': '🇳🇱'
+                            'SP1': '🇪🇸', 'SP2': '🇪🇸', 'E0': '🇬🇧', 'E1': '🇬🇧', 'D1': '🇩🇪', 'I1': '🇮🇹', 'F1': '🇫🇷', 'P1': '🇵🇹', 'N1': '🇳🇱'
                         }
                         
                         # Use API-Sports Logos (High Reliability)
@@ -675,6 +686,8 @@ with tab1:
                             'F1': "https://media.api-sports.io/football/leagues/61.png",   # Ligue 1
                             'N1': "https://media.api-sports.io/football/leagues/88.png",   # Eredivisie
                             'P1': "https://media.api-sports.io/football/leagues/94.png",   # Liga Portugal
+                            'SP2': "https://media.api-sports.io/football/leagues/141.png", # La Liga 2
+                            'E1': "https://media.api-sports.io/football/leagues/40.png"    # Championship
                         }
                         default_logo = "https://cdn-icons-png.flaticon.com/512/53/53283.png"
 
@@ -706,8 +719,11 @@ with tab1:
                                 m_dict = m_row.to_dict()
                                 
                                 # SCAN TRENDS ON THE FLY
-                                h_trends = scanner.scan(m_dict['HomeTeam'], data, context='home')
-                                a_trends = scanner.scan(m_dict['AwayTeam'], data, context='away')
+                                h_norm = predictor.normalize_name(m_dict['HomeTeam'])
+                                a_norm = predictor.normalize_name(m_dict['AwayTeam'])
+                                
+                                h_trends = scanner.scan(h_norm, data, context='home')
+                                a_trends = scanner.scan(a_norm, data, context='away')
                                 
                                 # Pass dependencies
                                 render_premium_match_row(
@@ -724,8 +740,11 @@ with tab1:
                         st.caption("Partidos Varios")
                         for _, m_row in md_df.iterrows():
                             # SCAN TRENDS
-                            h_trends = scanner.scan(m_row['HomeTeam'], data, context='home')
-                            a_trends = scanner.scan(m_row['AwayTeam'], data, context='away')
+                            h_norm = predictor.normalize_name(m_row['HomeTeam'])
+                            a_norm = predictor.normalize_name(m_row['AwayTeam'])
+                            
+                            h_trends = scanner.scan(h_norm, data, context='home')
+                            a_trends = scanner.scan(a_norm, data, context='away')
                             
                             render_premium_match_row(m_row.to_dict(), predictor, None, trends_analyzer_forms, go_to_match, home_trends=h_trends, away_trends=a_trends)
                 else:

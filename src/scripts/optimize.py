@@ -13,7 +13,7 @@ from src.engine.patterns import PatternAnalyzer
 
 def load_data():
     print("Loading Data...")
-    leagues = ['SP1', 'E0', 'D1', 'I1', 'F1', 'P1']
+    leagues = ['SP1', 'E0', 'D1', 'I1', 'F1', 'P1', 'SP2', 'E1']
     seasons = ['2526', '2425', '2324', '2223', '2122', '2021'] # Last 5-6 years
     loader = DataLoader(cache_dir="data_cache")
     df = loader.fetch_data(leagues, seasons)

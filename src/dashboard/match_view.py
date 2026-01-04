@@ -65,7 +65,7 @@ def render_match_details(match_info, predictor):
                 st.write("Row Debug Partial:", row_debug)
                 
                 if hasattr(predictor.ml_engine, 'predict_row'):
-                     full_row = predictor.predict_match(home_team, away_team)
+                     full_row = predictor.predict_match_safe(home_team, away_team)
                      st.write("Full Prediction Output:", full_row)
                      st.write("Model Features:", getattr(predictor.ml_engine, 'feature_cols', 'Unknown'))
                      st.write("Model Trained?", getattr(predictor.ml_engine, 'is_trained', 'Unknown'))
@@ -80,7 +80,7 @@ def render_match_details(match_info, predictor):
     ref_name = match_info.get('Referee', None)
     
     # Predict
-    fresh_row = predictor.predict_match(home_team, away_team, match_date=date, referee=ref_name)
+    fresh_row = predictor.predict_match_safe(home_team, away_team, match_date=date, referee=ref_name)
     
     if fresh_row:
         # Merge fresh predictions into match_info (keeping meta data like Time/Div)

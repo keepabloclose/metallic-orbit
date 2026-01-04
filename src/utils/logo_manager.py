@@ -11,7 +11,10 @@ class LogoManager:
         'D1': 'Germany - Bundesliga',
         'F1': 'France - Ligue 1',
         'N1': 'Netherlands - Eredivisie',
-        'P1': 'Portugal - Liga Portugal', # Guessing, consistent with pattern
+        'N1': 'Netherlands - Eredivisie',
+        'P1': 'Portugal - Liga Portugal',
+        'SP2': 'Spain - La Liga 2',
+        'E1': 'England - Championship'
     }
 
     # Manual overrides for team names that don't match the repo
@@ -96,6 +99,14 @@ class LogoManager:
         'Lille': 'LOSC Lille',
     }
     
+    # Hardcoded URLs for teams where repo is missing/broken
+    HARDCODED_URLS = {
+        'Barcelona': "https://upload.wikimedia.org/wikipedia/en/thumb/4/47/FC_Barcelona_%28crest%29.svg/200px-FC_Barcelona_%28crest%29.svg.png",
+        'Getafe CF': "https://upload.wikimedia.org/wikipedia/en/thumb/7/7f/Getafe_CF_logo.svg/200px-Getafe_CF_logo.svg.png",
+        'Getafe': "https://upload.wikimedia.org/wikipedia/en/thumb/7/7f/Getafe_CF_logo.svg/200px-Getafe_CF_logo.svg.png",
+        'Real Madrid': "https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/200px-Real_Madrid_CF.svg.png"
+    }
+
     def __init__(self):
         self.cache = {}
 
@@ -112,6 +123,9 @@ class LogoManager:
         If div is provided, uses strictly that league folder (more accurate).
         Otherwise, might search (not implemented yet).
         """
+        # Check Hardcoded first
+        if team_name in self.HARDCODED_URLS:
+            return self.HARDCODED_URLS[team_name]
         if not div:
             return None # Can't guess league easily without data
             

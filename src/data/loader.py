@@ -29,7 +29,8 @@ class DataLoader:
                     if os.path.exists(cache_path):
                         df = pd.read_csv(cache_path)
                     else:
-                        response = requests.get(url)
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+                        response = requests.get(url, headers=headers)
                         response.raise_for_status()
                         # Use latin-1 for football-data.co.uk to handle accents correctly
                         df = pd.read_csv(io.StringIO(response.content.decode('latin-1')))

@@ -19,7 +19,7 @@ def run_strategy_backtest():
     loader = DataLoader()
     # Mock streamlit cache doesn't exist here, so just call fetch
     # We load major leagues for testing
-    leagues = ["E0", "SP1", "D1", "I1", "F1"] 
+    leagues = ["E0", "SP1", "D1", "I1", "F1", "SP2", "E1"] 
     seasons = ["2324", "2425"]
     data = loader.fetch_data(leagues, seasons)
     

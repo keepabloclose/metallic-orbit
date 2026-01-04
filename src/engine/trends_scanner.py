@@ -7,14 +7,14 @@ class TrendScanner:
         # Define atomic conditions to check
         # Label: (Function(row) -> bool, Threshold %)
         self.conditions = {
-            'Over 1.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) > 1.5, 0.8),
-            'Over 2.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) > 2.5, 0.7),
-            'Under 2.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) < 2.5, 0.7),
-            'Under 3.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) < 3.5, 0.8),
-            'BTTS (Ambos Marcan)': (lambda r: (r['FTHG'] > 0) and (r['FTAG'] > 0), 0.7),
-            'Clean Sheet (Portería a 0)': (lambda r, team: (r['HomeTeam'] == team and r['FTAG'] == 0) or (r['AwayTeam'] == team and r['FTHG'] == 0), 0.6),
+            'Over 1.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) > 1.5, 0.75),
+            'Over 2.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) > 2.5, 0.65),
+            'Under 2.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) < 2.5, 0.65),
+            'Under 3.5 Goles': (lambda r: (r['FTHG'] + r['FTAG']) < 3.5, 0.75),
+            'BTTS (Ambos Marcan)': (lambda r: (r['FTHG'] > 0) and (r['FTAG'] > 0), 0.65),
+            'Clean Sheet (Portería a 0)': (lambda r, team: (r['HomeTeam'] == team and r['FTAG'] == 0) or (r['AwayTeam'] == team and r['FTHG'] == 0), 0.5),
             'Gana Partido': (lambda r, team: (r['HomeTeam'] == team and r['FTR'] == 'H') or (r['AwayTeam'] == team and r['FTR'] == 'A'), 0.7),
-            'No Pierde (1X/X2)': (lambda r, team: not ((r['HomeTeam'] == team and r['FTR'] == 'A') or (r['AwayTeam'] == team and r['FTR'] == 'H')), 0.85)
+            'No Pierde (1X/X2)': (lambda r, team: not ((r['HomeTeam'] == team and r['FTR'] == 'A') or (r['AwayTeam'] == team and r['FTR'] == 'H')), 0.80)
         }
         
     def scan(self, team, historical_df, context='global', last_n=10):
@@ -22,6 +22,9 @@ class TrendScanner:
         Scans for trends for a specific team in a specific context (Home/Away/Global).
         Returns a list of trend strings, e.g. ["Over 1.5 L8/10", "BTTS L7/10"]
         """
+        if historical_df.empty:
+            return []
+            
         # Filter games involving the team
         if context == 'home':
              df = historical_df[historical_df['HomeTeam'] == team].copy()

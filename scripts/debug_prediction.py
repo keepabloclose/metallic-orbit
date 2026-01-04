@@ -50,14 +50,21 @@ def debug():
         s_a = predictor.get_latest_stats(a_norm)
         
         if s_h is None: print(f"❌ Falta Stats LOCAL: {h_norm}")
-        else: print(f"✅ Stats Local OK ({h_norm}): PPG={s_h.get('HomePPG',0):.2f}")
+        else: 
+            ppg = s_h.get('PPG', 0)
+            gf = s_h.get('AvgGoalsFor', 0)
+            print(f"✅ Stats Local OK ({h_norm}): PPG={ppg:.2f}, AvgGoalsFor={gf:.2f}")
         
         if s_a is None: print(f"❌ Falta Stats VISITANTE: {a_norm}")
-        else: print(f"✅ Stats Visitante OK ({a_norm}): PPG={s_a.get('AwayPPG',0):.2f}")
+        else: 
+            ppg = s_a.get('PPG', 0)
+            gf = s_a.get('AvgGoalsFor', 0)
+            print(f"✅ Stats Visitante OK ({a_norm}): PPG={ppg:.2f}, AvgGoalsFor={gf:.2f}")
         
-        res = predictor.predict_match(h, a)
+        res = predictor.predict_match_safe(h, a)
         if res:
-            print("✅ PREDICCIÓN ÉXITOSA")
+             print(f"   PRED ROW: HomeAvgGoalsFor={res.get('HomeAvgGoalsFor', 'N/A')}")
+             print("✅ PREDICCIÓN ÉXITOSA")
         else:
             print("❌ PREDICCIÓN FALLIDA (Retorno Nulo)")
 

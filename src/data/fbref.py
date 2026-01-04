@@ -15,7 +15,9 @@ class FBrefLoader:
         'E0': ('9', 'Premier-League'),
         'D1': ('20', 'Bundesliga'),
         'I1': ('11', 'Serie-A'),
-        'F1': ('13', 'Ligue-1')
+        'F1': ('13', 'Ligue-1'),
+        'E1': ('10', 'Championship'),
+        'SP2': ('17', 'Segunda-Division')
     }
     
     def __init__(self, data_dir="data_cache/fbref"):

@@ -18,9 +18,13 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
     time = match.get('Time', '00:00')
     div = match.get('Div', '')
     
+    # Normalize names for Logo Lookup
+    home_norm = predictor.normalize_name(home)
+    away_norm = predictor.normalize_name(away)
+    
     # Get Logos
-    home_logo = logo_manager.get_team_logo(home, div)
-    away_logo = logo_manager.get_team_logo(away, div)
+    home_logo = logo_manager.get_team_logo(home_norm, div)
+    away_logo = logo_manager.get_team_logo(away_norm, div)
     default_logo = "https://cdn-icons-png.flaticon.com/512/53/53283.png"
     
     # Form
@@ -79,8 +83,12 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
          trends_html += get_trend_pill(f"IA: +2.5 ({match['ML_Over25']}%)", 'good')
 
     # --- PRE-CALCULATION OF PREDICTION ---
-    ref_name = match.get('Referee', None)
-    pred_row = predictor.predict_match(match['HomeTeam'], match['AwayTeam'], referee=ref_name)
+    # optimization: use existing prediction if passed in match dict
+    if 'REG_HomeGoals' in match:
+        pred_row = match
+    else:
+        ref_name = match.get('Referee', None)
+        pred_row = predictor.predict_match(match['HomeTeam'], match['AwayTeam'], referee=ref_name)
     
     # Check Risks / Traps
     risk_html = ""
@@ -142,13 +150,15 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
             
             # Display Prediction Result (Pre-calculated)
             if pred_row:
-                p_h = pred_row.get('PredictedHomeGoals', 0)
-                p_a = pred_row.get('PredictedAwayGoals', 0)
+                p_h = pred_row.get('REG_HomeGoals', 0)
+                p_a = pred_row.get('REG_AwayGoals', 0)
                 
                 # Format: 🎯 2.1 - 1.0 (or rounded 2-1)
                 st.markdown(f"**🎯 {p_h:.0f} - {p_a:.0f}**", help=f"Exacto: {p_h:.2f} - {p_a:.2f}")
             else:
                  st.markdown("-")
+            
+
             
         with c5:
             st.caption("Tendencias / Riesgos")
