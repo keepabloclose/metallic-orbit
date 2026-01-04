@@ -203,6 +203,14 @@ class FeatureEngineer:
             how='left'
         ).drop(columns=['Team'])
         
+        # --- FIX: Alias columns without window suffix for compatibility with Strategies ---
+        # e.g. HomeAvgGoalsFor_5 -> HomeAvgGoalsFor
+        for col in self.df.columns:
+            if f'_{window}' in col:
+                base_name = col.replace(f'_{window}', '')
+                if base_name not in self.df.columns:
+                    self.df[base_name] = self.df[col]
+
         # Fill NA
         self.df = self.df.fillna(0) # Aggressive fillna for new columns
         

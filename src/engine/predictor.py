@@ -138,6 +138,77 @@ class Predictor:
             'Sport-Club Freiburg': 'Freiburg',
             'SC Freiburg': 'Freiburg',
             'Hamburger SV': 'Hamburg',
+            # La Liga 2 (SP2) & Updates
+            'Levante UD': 'Levante',
+            'Real Zaragoza': 'Zaragoza',
+            'Sporting de Gijón': 'Sp Gijon',
+            'Sporting Gijon': 'Sp Gijon',
+            'Sporting Gijón': 'Sp Gijon',
+            'Racing de Santander': 'Santander',
+            'Racing Santander': 'Santander',
+            'SD Eibar': 'Eibar',
+            'Granada CF': 'Granada',
+            'Elche CF': 'Elche',
+            'CD Tenerife': 'Tenerife',
+            'Albacete Balompié': 'Albacete',
+            'Burgos CF': 'Burgos',
+            'FC Cartagena': 'Cartagena',
+            'CD Castellón': 'Castellon',
+            'CD Eldense': 'Eldense',
+            'Cordoba CF': 'Cordoba',
+            'SD Huesca': 'Huesca',
+            'Malaga CF': 'Malaga',
+            'Mirandes': 'Mirandes',
+            'CD Mirandés': 'Mirandes',
+            'Mirandés': 'Mirandes',
+            'Racing Club Ferrol': 'Ferrol',
+            'UD Almería': 'Almeria',
+            'Cadiz CF': 'Cadiz',
+            
+            # User-Specific / Future / Copa Teams
+            'Cultural Leonesa': 'Cultural Leonesa',
+            'Real Sociedad B': 'Sociedad B',
+            'AD Ceuta': 'Ceuta',
+            'FC Andorra': 'Andorra',
+            'S.D. Huesca': 'Huesca',
+            'U.D. Las Palmas': 'Las Palmas',
+            'Las Palmas': 'Las Palmas',
+            'CD Leganes': 'Leganes',
+            'Leganés': 'Leganes',
+            'Deportivo': 'Dep. La Coruna', # Assumed
+            'Racing de Santander': 'Santander', # Ensure match
+            'Real Zaragoza': 'Zaragoza',
+
+            # Getafe specific fix
+            'Getafe CF': 'Getafe',
+            'Rayo Vallecano': 'Vallecano',
+            'Girona FC': 'Girona',
+            
+            # English Championship (E1)
+            'Leeds United': 'Leeds',
+            'Sunderland AFC': 'Sunderland',
+            'West Bromwich Albion': 'West Brom',
+            'West Bromwich': 'West Brom',
+            'Blackburn Rovers': 'Blackburn',
+            'Preston North End': 'Preston',
+            'Sheffield Wednesday': 'Sheffield Weds',
+            'Queens Park Rangers': 'QPR',
+            'Coventry City': 'Coventry',
+            'Stoke City': 'Stoke',
+            'Hull City': 'Hull',
+            'Middlesbrough FC': 'Middlesbrough',
+            'Sheffield United': 'Sheffield United',
+            'Burnley FC': 'Burnley',
+            'Luton Town': 'Luton',
+            'Norwich City': 'Norwich',
+            'Watford FC': 'Watford',
+            'Bristol City': 'Bristol City',
+            'Cardiff City': 'Cardiff',
+            'Derby County': 'Derby',
+            'Oxford United': 'Oxford',
+            'Portsmouth FC': 'Portsmouth',
+            'Plymouth Argyle': 'Plymouth',
+            'Swansea City': 'Swansea',
         }
         return mapping.get(name, name)
 
@@ -318,7 +389,7 @@ class Predictor:
         
         return {'AvgCards': avg_cards if pd.notna(avg_cards) else 4.0, 'Matches': len(recent)}
 
-    def predict_match(self, home_team, away_team, referee=None, match_date=None): 
+    def predict_match_safe(self, home_team, away_team, referee=None, match_date=None): 
         home_stats = self.get_latest_stats(home_team)
         away_stats = self.get_latest_stats(away_team)
         
@@ -485,4 +556,46 @@ class Predictor:
         return row
 
     def analyze_upcoming(self, upcoming_df, patterns_analyzer):
-        return [] 
+        """
+        Scans upcoming matches for AI Strategies/Patterns.
+        Returns a list of dictionaries with match info + found patterns.
+        """
+        results = []
+        if upcoming_df.empty:
+            return []
+            
+        print(f"Analyzing {len(upcoming_df)} matches for patterns...")
+        
+        for idx, row in upcoming_df.iterrows():
+            # 1. Enrich Data (Calculate Features + Predict)
+            # Use predict_match_safe logic but tailored for a row input if possible, 
+            # or just pull the teams and call predict_match_safe
+            
+            home = row['HomeTeam']
+            away = row['AwayTeam']
+            date = row.get('Date', pd.Timestamp.now())
+            
+            try:
+                # This returns a FULL row with features ('HomePPG', 'HomeAvgGoalsFor' etc.)
+                # AND predictions ('B365H', 'est_odd_over' etc.)
+                enriched_row = self.predict_match_safe(home, away, match_date=date)
+                
+                # Merge with original row data (e.g. Div, Time)
+                # enriched_row is a dict, row is a Series
+                full_data = row.to_dict()
+                full_data.update(enriched_row)
+                
+                # 2. Check Patterns
+                # patterns_analyzer.check_patterns expects a dict with all features
+                found_patterns = patterns_analyzer.check_patterns(full_data)
+                
+                if found_patterns:
+                    full_data['strategies'] = found_patterns
+                    results.append(full_data)
+                    
+            except Exception as e:
+                # Continue if one match fails (e.g. Missing Data handled by get_default_stats, but safe catch)
+                print(f"Error analyzing {home} vs {away}: {e}")
+                continue
+                
+        return results 

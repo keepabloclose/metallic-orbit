@@ -2,38 +2,38 @@
 def cond_home_dominant(row):
     """
     Local Dominante (Versión Pro):
-    Local marca medias > 1.6 y tiene momentum (No pierde mucho).
-    Factor Rival: Visitante ha encajado en 80% de sus salidas (CleanSheetRate < 0.2).
+    Local marca medias > 1.5 y tiene momentum (No pierde mucho).
+    Factor Rival: Visitante ha encajado en 65% de sus salidas (CleanSheetRate < 0.35).
     """
-    home_strong = (row.get('HomeAvgGoalsFor', 0) > 1.6 and 
-                   row.get('HomePPG', 0) > 1.6 and
-                   row.get('HomeWinsLast5', 0) >= 3)
+    home_strong = (row.get('HomeAvgGoalsFor', 0) > 1.5 and 
+                   row.get('HomePPG', 0) > 1.5 and
+                   row.get('HomeWinsLast5', 0) >= 2) # Relaxed from 3
                    
     # Factor Rival
-    visitor_weak_defense = (row.get('AwayCleanSheet_Rate', 1.0) <= 0.2)
+    visitor_weak_defense = (row.get('AwayCleanSheet_Rate', 1.0) <= 0.35) # Relaxed from 0.2
     
     # 4.0 Check: Regression Risk
     # If Home Z-Score is excessively high (> 2.5), they are overperforming and due for a crash.
-    regression_risk = row.get('HomeZScore_Goals', 0) > 2.5
+    regression_risk = row.get('HomeZScore_Goals', 0) > 2.8 # Relaxed from 2.5
     
     return home_strong and visitor_weak_defense and not regression_risk
 
 def cond_goal_fest_strict(row):
     """
     Festival de Goles (>2.5) Pro 4.0 (Optimized):
-    Frecuencia Over: > 66%.
-    Poder Ofensivo Combinado > 3.0 (Subido de 2.8).
+    Frecuencia Over: > 60%.
+    Poder Ofensivo Combinado > 2.5 (Relaxed from 3.0).
     Momentum: Z-Score Local Positivo (No en crisis).
     """
     # Consistency
-    consistent_over = (row.get('HomeOver25_Rate', 0) >= 0.66 and row.get('AwayOver25_Rate', 0) >= 0.66)
+    consistent_over = (row.get('HomeOver25_Rate', 0) >= 0.60 and row.get('AwayOver25_Rate', 0) >= 0.60)
     
-    # Combined Scoring Power - TIGHTENED to 3.0
+    # Combined Scoring Power - TIGHTENED to 3.0 -> Relaxed to 2.5
     combined_poa = row.get('HomeAvgGoalsFor', 0) + row.get('AwayAvgGoalsFor', 0)
     
     # Momentum Check (New)
     # Ensure Home team is not in a scoring slump (Z > -0.2)
-    momentum = row.get('HomeZScore_Goals', 0) > -0.2
+    momentum = row.get('HomeZScore_Goals', 0) > -0.5 # Relaxed
     
     # TRAP FILTERS Check
     traps_active = (row.get('Trap_FearError', 0) + row.get('Trap_StyleClash', 0) + row.get('Trap_Fatigue', 0)) > 0
@@ -42,19 +42,19 @@ def cond_goal_fest_strict(row):
     
     if not consistent_over: return False
     
-    return combined_poa > 3.0 and momentum
+    return combined_poa > 2.5 and momentum
 
 def cond_btts_high(row):
     """
     Ambos Marcan (Alta Probabilidad) Pro 4.0:
-    Consistencia BTTS > 55%.
+    Consistencia BTTS > 50%.
     """
-    consistent_btts = (row.get('HomeBTTS_Rate', 0) >= 0.55 and row.get('AwayBTTS_Rate', 0) >= 0.55)
-    leaky = (row.get('HomeCleanSheet_Rate', 1.0) < 0.35 and row.get('AwayCleanSheet_Rate', 1.0) < 0.35)
+    consistent_btts = (row.get('HomeBTTS_Rate', 0) >= 0.50 and row.get('AwayBTTS_Rate', 0) >= 0.50)
+    leaky = (row.get('HomeCleanSheet_Rate', 1.0) < 0.40 and row.get('AwayCleanSheet_Rate', 1.0) < 0.40)
     
     # Check Luck Filter: If Goals Z-Score >> xG Z-Score, they are lucky.
-    h_lucky = (row.get('HomeZScore_Goals', 0) - row.get('HomeZScore_xG', 0)) > 1.5
-    a_lucky = (row.get('AwayZScore_Goals', 0) - row.get('AwayZScore_xG', 0)) > 1.5
+    h_lucky = (row.get('HomeZScore_Goals', 0) - row.get('HomeZScore_xG', 0)) > 1.8
+    a_lucky = (row.get('AwayZScore_Goals', 0) - row.get('AwayZScore_xG', 0)) > 1.8
     
     if h_lucky or a_lucky: return False
     
@@ -69,34 +69,34 @@ def cond_over_15_safe(row):
     combined_avg = row.get('HomeAvgGoalsFor', 0) + row.get('AwayAvgGoalsFor', 0)
     
     # Volatility Check (Stability)
-    stable_std = (row.get('HomeStdDevGoals', 2.0) < 1.3 and row.get('AwayStdDevGoals', 2.0) < 1.3)
+    stable_std = (row.get('HomeStdDevGoals', 2.0) < 1.4 and row.get('AwayStdDevGoals', 2.0) < 1.4)
     
     # Z-Score Consistency Check
     h_z = row.get('HomeZScore_Goals', 0)
     a_z = row.get('AwayZScore_Goals', 0)
-    consistent_z = (-1.0 < h_z < 2.0) and (-1.0 < a_z < 2.0)
+    consistent_z = (-1.0 < h_z < 2.5) and (-1.0 < a_z < 2.5)
     
     no_zeros = (row.get('HomeZeroZero_Count', 0) == 0 and row.get('AwayZeroZero_Count', 0) == 0)
     
-    return (combined_avg > 2.2) and stable_std and no_zeros and consistent_z
+    return (combined_avg > 2.0) and stable_std and no_zeros and consistent_z
 
 # --- Defines ---
 
 def cond_paper_tiger_away(row):
     """
     Cazando Tigres de Papel Pro (Lay Visitante):
-    Visitante PPG < 0.9.
-    Filtro Estricto: Visitante pierde > 60% fuera (LossesLast5 >= 3).
-    Defensa coladero: Encaja en > 85% partidos (CleanSheet < 0.15).
+    Visitante PPG < 1.0.
+    Filtro Estricto: Visitante pierde > 50% fuera (LossesLast5 >= 2).
+    Defensa coladero: Encaja en > 70% partidos (CleanSheet < 0.30).
     """
-    away_bad = (row.get('AwayPPG', 0) < 0.9)
+    away_bad = (row.get('AwayPPG', 0) < 1.0)
     
     # Visitor struggles away - TIGHTENED
-    visitor_leaky = row.get('AwayCleanSheet_Rate', 1.0) < 0.15 # Tightened from 0.2
-    visitor_loses = row.get('AwayLossesLast5', 0) >= 3
+    visitor_leaky = row.get('AwayCleanSheet_Rate', 1.0) < 0.30 # Tightened from 0.2
+    visitor_loses = row.get('AwayLossesLast5', 0) >= 2
     
     # Home Strong enough to punish
-    home_score = row.get('HomeAvgGoalsFor', 0) > 1.4
+    home_score = row.get('HomeAvgGoalsFor', 0) > 1.3
     
     return away_bad and visitor_leaky and visitor_loses and home_score
 

@@ -1,10 +1,31 @@
-import pandas as pd
-import numpy as np
+from src.engine.strategies import PREMATCH_PATTERNS
 
 class PatternAnalyzer:
     def __init__(self, df):
         self.df = df.copy()
         
+    def check_patterns(self, row_dict):
+        """
+        Checks a single match (row_dict) against all registered PREMATCH_PATTERNS.
+        Returns a list of strings (pattern names) that match.
+        """
+        found = []
+        for item in PREMATCH_PATTERNS:
+            # Handle 3 or 4 item tuples
+            if len(item) == 4:
+                name, condition, target, odds = item
+            else:
+                name, condition, target = item
+                
+            try:
+                if condition(row_dict):
+                    found.append(name)
+            except Exception as e:
+                # print(f"Error check pattern {name}: {e}")
+                pass
+                
+        return found
+
     def evaluate_pattern(self, condition_func, target_event_func, odds_column=None, min_samples=20):
         """
         Evaluates a specific pattern against the historical data.
