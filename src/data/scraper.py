@@ -49,45 +49,82 @@ class BetExplorerScraper:
             # BetExplorer lists matches in a table.
             # Headers often contain the date. Rows contain matches.
             
+            # BetExplorer often puts fixtures in a specific container.
+            # Try appending 'fixtures/' to URL if not present to ensure we get lists
+            if 'fixtures' not in url and 'results' not in url:
+                if not url.endswith('/'): url += '/'
+                url += 'fixtures/'
+            
+            print(f"Scraping corrected URL: {url}")
+            driver.get(url)
+            time.sleep(3)
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            
+            # Match rows typically have 'data-dt' attribute (match ID/timestamp)
             rows = soup.find_all('tr')
+            
             current_date = pd.Timestamp.now().normalize()
             
             for row in rows:
-                # Check for date header
-                # Usually <th ...> ... </th>
-                if row.find('th'):
-                    header_text = row.get_text(strip=True)
-                    # Try to parse date from header like "03.01.2026" or "Saturday, 03 January 2026"
-                    # BetExplorer format varies. Let's assume DD.MM.YYYY if present.
-                    try:
-                         # Simple heuristic: split by space, check for dates
-                         # or regex search
-                         import re
-                         date_match = re.search(r'(\d{2}\.\d{2}\.\d{4})', header_text)
-                         if date_match:
-                             d_str = date_match.group(1)
-                             current_date = pd.to_datetime(d_str, dayfirst=True)
-                    except:
-                        pass
-                    continue
+                # 1. Date Header Check
+                if 'table-main__heading' in row.get('class', []):
+                    # Extract date
+                    txt = row.get_text()
+                    # Parse logic...
+                    pass
                 
-                # Check for match row
-                team_cells = row.find_all('td', class_='h-text-left')
-                if team_cells:
-                    text = team_cells[0].get_text(strip=True)
-                    if '-' in text:
-                        parts = text.split('-')
-                        home = parts[0].strip()
-                        away = parts[1].strip()
-                        
-                        matches.append({
-                            'Div': league_code,
-                            'HomeTeam': home,
-                            'AwayTeam': away,
-                            'Date': current_date,
-                            'Time': '12:00' # Scraper hard/impossible to get time accurately without more parsing
-                        })
-                        
+                # 2. Match Row Check
+                # Look for team names and odds
+                # Cells: [Status/Time, Teams, Result/-, 1, X, 2]
+                cells = row.find_all('td')
+                
+                # BetExplorer Fixtures Table usually has:
+                # 0: Time
+                # 1: Match (Home - Away)
+                # 2: Score (or -)
+                # 3: Odds 1
+                # 4: Odds X
+                # 5: Odds 2
+                
+                if len(cells) >= 6:
+                    # Check if it's a match row
+                    teams_cell = row.find('td', class_='h-text-left')
+                    if teams_cell and '-' in teams_cell.get_text():
+                        # Extract Teams
+                        teams_txt = teams_cell.get_text(strip=True)
+                        parts = teams_txt.split('-')
+                        if len(parts) >= 2:
+                            home = parts[0].strip()
+                            away = parts[1].strip()
+                            
+                            # Extract Odds
+                            # These are usuallly in cells with data-odd
+                            try:
+                                # Start searching from cell index 
+                                # This requires inspecting the specific layout relative to 'h-text-left'
+                                # Heuristic: The cells AFTER the team cell are usually 1, X, 2
+                                team_idx = cells.index(teams_cell)
+                                odd_1 = cells[team_idx + 2].get_text(strip=True)
+                                odd_x = cells[team_idx + 3].get_text(strip=True)
+                                odd_2 = cells[team_idx + 4].get_text(strip=True)
+                                
+                                # Validate they look like numbers
+                                if odd_1 == '-' or odd_1 == '': odd_1 = None
+                                if odd_x == '-' or odd_x == '': odd_x = None
+                                if odd_2 == '-' or odd_2 == '': odd_2 = None
+                                
+                                matches.append({
+                                    'Div': league_code,
+                                    'Date': current_date, # Fallback, needs DATE header parsing logic ideally
+                                    'HomeTeam': home, 
+                                    'AwayTeam': away,
+                                    'B365H': float(odd_1) if odd_1 else None,
+                                    'B365D': float(odd_x) if odd_x else None,
+                                    'B365A': float(odd_2) if odd_2 else None
+                                })
+                            except:
+                                pass
         except Exception as e:
             print(f"Scrape Error: {e}")
         finally:

@@ -131,8 +131,46 @@ def render_match_details(match_info, predictor):
                 unsafe_allow_html=True
             )
             
+            # --- HELPER: ENRICH ODDS ---
+            def enrich_text_with_odd(text, match_data):
+                """Looks for key markets in text and appends odd if found."""
+                lower_txt = text.lower()
+                odd_found = None
+                
+                # Over/Under X.X Patterns (+1.5, >1.5, Over 1.5)
+                import re
+                match_over = re.search(r'(\+|>|Over|Más de|Mas de) ?([0-9]\.5)', text, re.IGNORECASE)
+                if match_over:
+                    line = match_over.group(2) # "1.5"
+                    key = f"B365_Over{line}"
+                    val = match_data.get(key)
+                    if val and str(val) != 'nan':
+                        odd_found = val
+                
+                # BTTS
+                if 'ambos' in lower_txt or 'btts' in lower_txt:
+                    val = match_data.get('B365_BTTS_Yes')
+                    if val and str(val) != 'nan':
+                         odd_found = val
+                         
+                if odd_found:
+                    return f"{text} (@ {odd_found})"
+                return text
+
+            # --- AI SUGGESTIONS WITH ODDS ---
+            
+            # 1. Over 2.5 Logic
             if match_info.get('ML_Over25'):
-                st.info("🔥 Alta Probabilidad de +2.5 Goles")
+                base_text = "🔥 Alta Probabilidad de +2.5 Goles"
+                final_text = enrich_text_with_odd(base_text, match_info)
+                st.info(final_text)
+
+            # 2. BTTS Logic
+            if match_info.get('ML_BTTS_Yes') or ((match_info.get('ML_Over25', 0) > 75) and (match_info.get('B365_BTTS_Yes'))):
+                 base_text = "⚽ Ambos Marcan (Yes)"
+                 final_text = enrich_text_with_odd(base_text, match_info)
+                 st.success(final_text)
+
     else:
         st.info("Predicciones de IA no disponibles para este partido (Faltan datos históricos pareados).")
 
@@ -340,7 +378,8 @@ def render_match_details(match_info, predictor):
             # We treat >= 0.8 as Strong (e.g. 4/5, 5/5, 8/10).
             # 7/10 (0.7) would be hidden.
             if ratio >= 0.8:
-                st.markdown(f"• :green[{t}]")
+                final_text = enrich_text_with_odd(t, match_info)
+                st.markdown(f"• :green[{final_text}]")
                 return True
         return False
 

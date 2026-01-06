@@ -24,9 +24,30 @@ class DataLoader:
                 print(f"Fetching {league} {season} from {url}...")
                 
                 try:
-                    # Try local cache first
+                    # Cache Strategy:
+                    # 1. Past Seasons: Permanent Cache (If exists, use it)
+                    # 2. Current Season (2425): Periodic Refresh (e.g., every 3 days)
+                    
+                    CURRENT_SEASON = "2425" # Update this seasonally
+                    REFRESH_DAYS = 3
+                    
                     cache_path = os.path.join(self.cache_dir, f"{league}_{season}.csv")
+                    fetch_needed = True
+                    
                     if os.path.exists(cache_path):
+                        if season == CURRENT_SEASON:
+                            # Check Age
+                            import time
+                            file_age_days = (time.time() - os.path.getmtime(cache_path)) / (3600 * 24)
+                            if file_age_days < REFRESH_DAYS:
+                                fetch_needed = False
+                                print(f"Using cached data for {league} {season} (Age: {file_age_days:.1f} days)")
+                        else:
+                            # Past seasons are static
+                            fetch_needed = False
+                            print(f"Using cached historical data for {league} {season}")
+                            
+                    if not fetch_needed:
                         df = pd.read_csv(cache_path)
                     else:
                         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}

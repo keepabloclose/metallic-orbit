@@ -1,8 +1,9 @@
+streamlit
 pandas
 numpy
 requests
-openpyxl
-xlsxwriter
-streamlit
+beautifulsoup4
+selenium
+webdriver-manager
+urllib3
 plotly
-scikit-learn

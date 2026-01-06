@@ -70,7 +70,7 @@ def go_to_match(match_data):
     st.session_state['view'] = 'match_details'
     st.session_state['selected_match'] = match_data
 
-@st.cache_data(ttl=3600) # Cache for 1 hour
+@st.cache_data(ttl=500) # Cache for 8 mins (Debug Refresh)
 def fetch_upcoming_cached(leagues):
     fetcher = FixturesFetcher()
     return fetcher.fetch_upcoming(leagues)
@@ -101,6 +101,13 @@ def load_data(leagues, seasons, version=4): # Incremented version
     df = engineer.add_recent_form(window=5) # PPG Form
     df = engineer.add_opponent_difficulty(window=5) # NEW: Opponent Strength
     df = engineer.add_relative_strength()
+
+    # --- GLOBAL NORMALIZATION AT SOURCE ---
+    # Fixes Promoted/Relegated team history disconnects (e.g. Leicester vs Leicester City)
+    from src.utils.normalization import NameNormalizer
+    df['HomeTeam'] = df['HomeTeam'].apply(NameNormalizer.normalize)
+    df['AwayTeam'] = df['AwayTeam'].apply(NameNormalizer.normalize)
+    
     return df
 
 
@@ -197,10 +204,12 @@ if st.session_state['view'] == 'match_details' and st.session_state['selected_ma
 
 def go_to_main():
     st.session_state['view'] = 'main'
+    st.rerun()
 
 def go_to_match(match_data):
     st.session_state['selected_match'] = match_data
     st.session_state['view'] = 'match_details'
+    st.rerun()
 
 # --- MAIN CONTROLLER ---
 if st.session_state['view'] == 'match_details':
@@ -379,17 +388,21 @@ with tab1:
                                 avg_goals = row.get('HomeAvgGoalsFor',0) + row.get('AwayAvgGoalsFor',0)
                                 prob = min(90, int(avg_goals * 20))
                                 suggestion = "Más de 2.5 Goles"
-                                # Try Over 2.5 Odds (Commonly 'B365>2.5' or 'Avg>2.5' in football-data)
-                                # Note: upcoming.py might strictly return what fixturedownload gives.
-                                # fixturedownload usually doesn't have O/U odds in the basic CSV, but let's try.
-                                odd_val = row.get('B365>2.5') or row.get('Avg>2.5')
+                                # Look for specific B365_Over2.5 or B365>2.5
+                                odd_val = row.get('B365_Over2.5') or row.get('B365>2.5')
+                                if pd.isna(odd_val): odd_val = row.get('Avg>2.5')
                                 if pd.notna(odd_val): specific_odd = f"{odd_val}"
 
                             elif "Seguro" in name:
                                 prob = 85
                                 suggestion = "Más de 1.5 Goles"
-                                odd_val = row.get('B365>2.5') # Proxy if >1.5 missing
-                                if pd.notna(odd_val): specific_odd = f"{odd_val} (Ref O2.5)" # Clearer label
+                                # Look for specific B365_Over1.5 or B365>1.5
+                                odd_val = row.get('B365_Over1.5') or row.get('B365>1.5')
+                                if pd.notna(odd_val): specific_odd = f"{odd_val}"
+                                else:
+                                    # Fallback to Over 2.5 reference if 1.5 not found (rare if fetched)
+                                    ref = row.get('B365_Over2.5') or row.get('B365>2.5')
+                                    if pd.notna(ref): specific_odd = f"(Ref O2.5: {ref})"
 
                             elif "Choque" in name:
                                 prob = 80
@@ -398,14 +411,72 @@ with tab1:
                                 if pd.notna(odd_val): specific_odd = f"{odd_val}"
 
                             elif "Tarjetas" in name:
-                                prob = 65
-                                suggestion = "Over 4.5 Tarjetas"
-                                # No standard column for card odds in simple feeds
+                                # DYNAMIC CARDS STRATEGY
+                                # Estimate cards based on Ref + Team Aggression
+                                ref_cards = row.get('Ref_AvgCards', 4.0)
+                                team_cards = (row.get('HomeAvgCards', 2.0) + row.get('AwayAvgCards', 2.0)) / 2
+                                est_cards = (ref_cards + team_cards) / 2
+                                
+                                # Decide Line
+                                if est_cards >= 4.8:
+                                    suggestion = "Más de 4.5 Tarjetas"
+                                    line = 4.5
+                                elif est_cards >= 3.8:
+                                    suggestion = "Más de 3.5 Tarjetas" 
+                                    line = 3.5
+                                else:
+                                    suggestion = "Más de 3.5 Tarjetas (Riesgo)"
+                                    line = 3.5
+                                    prob = 55 # Lower confidence
+                                
+                                prob = min(85, int(est_cards * 15))
+                                
+                                # Dynamic Lookup
+                                odd_val = row.get(f'B365_Cards_Over{line}')
+                                if pd.notna(odd_val): specific_odd = f"{odd_val} (O{line})"
+
+                            elif "Córner" in name:
+                                # DYNAMIC CORNERS STRATEGY
+                                tot_corners = row.get('HomeAvgCornersFor', 5) + row.get('AwayAvgCornersFor', 4)
+                                
+                                if tot_corners > 10.5:
+                                    suggestion = "Más de 10.5 Córners"
+                                    line = 10.5
+                                elif tot_corners > 9.5:
+                                    suggestion = "Más de 9.5 Córners"
+                                    line = 9.5
+                                else:
+                                    suggestion = "Más de 8.5 Córners"
+                                    line = 8.5
+                                
+                                prob = min(80, int(tot_corners * 8))
+                                
+                                odd_val = row.get(f'B365_Corners_Over{line}')
+                                if pd.notna(odd_val): specific_odd = f"{odd_val} (O{line})"
 
                             elif "Visitante" in name:
                                 prob = 60
                                 suggestion = "Victoria Visitante o X2"
                                 odd_val = row.get('B365A') or row.get('AvgA')
+                                if pd.notna(odd_val): specific_odd = f"{odd_val}"
+
+                            elif "Ambos Marcan" in name:
+                                prob = 80
+                                suggestion = "Ambos Marcan (Sí)"
+                                odd_val = row.get('B365_BTTS_Yes') or row.get('B365GG')
+                                if pd.notna(odd_val): specific_odd = f"{odd_val}"
+                            
+                            # NEW: TEAM GOALS
+                            elif "Goleador Local" in name or ("Local" in name and row.get('HomeAvgGoalsFor', 0) > 1.8):
+                                prob = 75
+                                suggestion = "Local: Más de 1.5 Goles"
+                                odd_val = row.get('B365_HomeTeam_Goals_Over1.5')
+                                if pd.notna(odd_val): specific_odd = f"{odd_val}"
+                            
+                            elif "Goleador Visitante" in name or ("Visitante" in name and row.get('AwayAvgGoalsFor', 0) > 1.8):
+                                prob = 70
+                                suggestion = "Visitante: Más de 1.5 Goles"
+                                odd_val = row.get('B365_AwayTeam_Goals_Over1.5')
                                 if pd.notna(odd_val): specific_odd = f"{odd_val}"
 
                             else:
@@ -458,6 +529,12 @@ with tab1:
                     matches_data.append(display_row) # For Explorer
                     
                     if row:
+                        # CRITICAL FIX: Merge 'match' data (which has the Odds) into 'row' (Prediction)
+                        # Predictor returns stats/probs, but 'match' has the B365 columns from upcoming.py
+                        for k, v in match.to_dict().items():
+                            if k not in row:
+                                row[k] = v
+                                
                         patterns = evaluate_match_potential(row)
                         for p in patterns:
                             all_preds.append({
@@ -495,12 +572,16 @@ with tab1:
                                         'meta': row,
                                         'patterns': []
                                     }
-                                unique_matches[key]['patterns'].append({
-                                    'suggestion': row['suggestion'],
-                                    'prob': row['prob'],
-                                    'pattern': row['pattern'],
-                                    'odd': row.get('odd', 'N/A')
-                                })
+                                    
+                                # DEDUPLICATION: Check if this suggestion exists
+                                existing_suggestions = [p['suggestion'] for p in unique_matches[key]['patterns']]
+                                if row['suggestion'] not in existing_suggestions:
+                                    unique_matches[key]['patterns'].append({
+                                        'suggestion': row['suggestion'],
+                                        'prob': row['prob'],
+                                        'pattern': row['pattern'],
+                                        'odd': row.get('odd', 'N/A')
+                                    })
                             
                             with st.expander(f"{flag_emoji} {league_name} ({len(unique_matches)} partidos con oportunidades)", expanded=True):
                                 for key, data_item in unique_matches.items():
@@ -550,8 +631,18 @@ with tab1:
                                                 m_col2.metric(f"{row['AwayTeam']}", f"{a_for:.1f} / {a_ag:.1f} (C/Enc)")
 
 
-                                            elif "Goles" in bp_name or "Over" in bp_name or "Seguro" in bp_name or "BTTS" in bp_name:
+                                            elif "Goles" in bp_name or "Over" in bp_name or "Seguro" in bp_name or "BTTS" in bp_name or "Ambos" in bp_name or "Marcan" in bp_name:
                                                 # Goals: Scored / Conceded
+                                                h_gf = stats.get('HomeAvgGoalsFor', 0)
+                                                h_ga = stats.get('HomeAvgGoalsAgainst', 0)
+                                                a_gf = stats.get('AwayAvgGoalsFor', 0)
+                                                a_ga = stats.get('AwayAvgGoalsAgainst', 0)
+                                                
+                                                m_col1.metric("🏠 Goles (F/C)", f"{h_gf:.1f} / {h_ga:.1f}")
+                                                m_col2.metric("✈️ Goles (F/C)", f"{a_gf:.1f} / {a_ga:.1f}")
+                                                
+                                            else:
+                                                # Fallback: Goals (safest metric)
                                                 h_gf = stats.get('HomeAvgGoalsFor', 0)
                                                 h_ga = stats.get('HomeAvgGoalsAgainst', 0)
                                                 a_gf = stats.get('AwayAvgGoalsFor', 0)
@@ -563,20 +654,21 @@ with tab1:
                                             # Quote Display
                                             st.markdown("---")
                                             q_col1, q_col2 = st.columns(2)
-                                            quote_val = row.get('odd')
                                             
-                                            if quote_val:
+                                            # CORRECT FIX: Use the odd from the Best Pattern, not the arbitrary row meta
+                                            quote_val = best_pattern.get('odd')
+                                            
+                                            # DISPLAY LOGIC
+                                            
+                                            if quote_val and quote_val != "N/A":
                                                 # Check if it's real (heuristic: not None)
-                                                if isinstance(quote_val, (int, float)) and quote_val > 1.01:
-                                                    q_col1.markdown(f"**Cuota:** `{quote_val}` 💰")
-                                                else:
-                                                    q_col1.caption("Cuota no disp.")
-                                            else:
-                                                q_col1.caption("Cuota no disp.")
-                                                
-                                            # Confidence Bar
-                                            st.progress(min(int(best_pattern['prob'] * 100), 100))
-                                            st.caption("Confianza del Modelo")
+                                                # If it's a string like "1.33", convert to float for check
+                                                try:
+                                                    val_float = float(str(quote_val).split()[0].replace('(', '')) 
+                                                    if val_float > 1.01:
+                                                        q_col1.markdown(f"**Cuota:** `{quote_val}` 💰")
+                                                except:
+                                                     q_col1.markdown(f"**Cuota:** `{quote_val}` 💰")
 
                                             
                                             # Odds Section (General)
@@ -650,7 +742,11 @@ with tab1:
 
                 st.subheader("📋 Cartelera del Día (Vista Premium)")
                 
+                import importlib
+                import src.dashboard.premium_row
+                importlib.reload(src.dashboard.premium_row)
                 from src.dashboard.premium_row import render_premium_match_row
+                
                 from src.engine.trends_scanner import TrendScanner
                 
                 # Initialize Scanner
@@ -667,6 +763,9 @@ with tab1:
                     if 'Time' in md_df.columns: sort_keys.append('Time')
                     
                     md_df = md_df.sort_values(by=sort_keys)
+                    
+                    # DEDUPLICATE (Robustness)
+                    md_df = md_df.drop_duplicates(subset=['HomeTeam', 'AwayTeam', 'Date'])
                     
                     # 2. Render Loop
                     # Group by League for cleaner UI?
@@ -697,6 +796,7 @@ with tab1:
                             logo = league_logos.get(div, default_logo)
                             
                             # Custom Header (Minimalist Strip)
+                            # Custom Header (Minimalist Strip)
                             st.markdown(f"""
                             <div style="
                                 display: flex; 
@@ -714,7 +814,7 @@ with tab1:
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            for _, m_row in group.iterrows():
+                            for idx, m_row in group.iterrows():
                                 # Convert Series to Dict
                                 m_dict = m_row.to_dict()
                                 
@@ -733,7 +833,8 @@ with tab1:
                                     trends_analyzer_forms,
                                     go_to_match,
                                     home_trends=h_trends,
-                                    away_trends=a_trends
+                                    away_trends=a_trends,
+                                    unique_key=f"{div}_{idx}" # Unique ID
                                 )
                     else:
                         # Fallback no Div grouping

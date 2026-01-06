@@ -1,0 +1,91 @@
+Match: Algeria - Ligue 1 | Slug: algeria-ligue-1
+Match: Azerbaijan - Premier League | Slug: azerbaijan-premier-league
+Match: Bahrain - Premier League | Slug: bahrain-premier-league
+Match: Belgium - Beker van Belgie | Slug: belgium-beker-van-belgie
+Match: Belgium - Challenger Pro League | Slug: belgium-challenger-pro-league
+Match: Belgium - Nationale 1 ACFF | Slug: belgium-nationale-1-acff
+Match: Belgium - Nationale 1 VV | Slug: belgium-nationale-1-vv
+Match: Belgium - Pro League | Slug: belgium-pro-league
+Match: Belgium - Super League, Women | Slug: belgium-super-league-women
+Match: Belgium - U21 Pro League | Slug: belgium-u21-pro-league
+Match: Botswana - Premier League | Slug: botswana-premier-league
+Match: Brazil - Brasileiro Serie A | Slug: brazil-brasileiro-serie-a
+Match: Brazil - Candango, Serie A | Slug: brazil-candango-serie-a
+Match: Brazil - Catarinense, Serie A | Slug: brazil-catarinense-serie-a
+Match: Brazil - Gaucho, Serie A1 | Slug: brazil-gaucho-serie-a1
+Match: Brazil - Paulista, Serie A1 | Slug: brazil-paulista-serie-a1
+Match: Brazil - Paulista, Serie A2 | Slug: brazil-paulista-serie-a2
+Match: Cambodia - Cambodian Premier League | Slug: cambodia-cambodian-premier-league
+Match: Egypt - Premier League | Slug: egypt-premier-league
+Match: England - Championship | Slug: england-championship
+Match: England - Premier League | Slug: england-premier-league
+Match: England Amateur - Championship, Women | Slug: england-amateur-championship-women
+Match: England Amateur - Northern Premier League Premier | Slug: england-amateur-northern-premier-league-premier
+Match: England Amateur - Premier League Cup | Slug: england-amateur-premier-league-cup
+Match: England Amateur - U21 Premier League 2 | Slug: england-amateur-u21-premier-league-2
+Match: Ethiopia - Premier League | Slug: ethiopia-premier-league
+Match: France - Ligue 1 | Slug: france-ligue-1
+Match: Germany - 2. Bundesliga | Slug: germany-2-bundesliga
+Match: Germany - Bundesliga | Slug: germany-bundesliga
+Match: Germany Amateur - 2. Bundesliga, Women | Slug: germany-amateur-2-bundesliga-women
+Match: Germany Amateur - Women Bundesliga | Slug: germany-amateur-women-bundesliga
+Match: Ghana - Premier League | Slug: ghana-premier-league
+Match: Greece - Gamma Ethniki | Slug: greece-gamma-ethniki
+Match: Greece - Greece Cup | Slug: greece-greece-cup
+Match: Greece - Super League | Slug: greece-super-league
+Match: Greece - Super League 2 | Slug: greece-super-league-2
+Match: Greece - Super League, Women | Slug: greece-super-league-women
+Match: Greece - U19 Super League | Slug: greece-u19-super-league
+Match: Hong Kong, China - Premier League | Slug: hong-kong-china-premier-league
+Match: International Clubs - ASEAN Club Championship | Slug: international-clubs-asean-club-championship
+Match: International Youth - U21 Premier League International Cup | Slug: international-youth-u21-premier-league-international-cup
+Match: Israel - Premier League | Slug: israel-premier-league
+Match: Israel - U19 Premier League | Slug: israel-u19-premier-league
+Match: Italy - Serie A | Slug: italy-serie-a
+Match: Italy - Serie A, Women | Slug: italy-serie-a-women
+Match: Jamaica - Premier League | Slug: jamaica-premier-league
+Match: Kenya - Premier League | Slug: kenya-premier-league
+Match: Mali - Ligue 1 | Slug: mali-ligue-1
+Match: Malta - Premier League | Slug: malta-premier-league
+Match: Mexico - Liga Premier Serie A | Slug: mexico-liga-premier-serie-a
+Match: Netherlands - Eredivisie | Slug: netherlands-eredivisie
+Match: Netherlands - Eredivisie, Women | Slug: netherlands-eredivisie-women
+Match: Nigeria - Premier League | Slug: nigeria-premier-league
+Match: Northern Ireland - Championship | Slug: northern-ireland-championship
+Match: Portugal - Campeonato Nacional, Women | Slug: portugal-campeonato-nacional-women
+Match: Portugal - Campeonato de Portugal | Slug: portugal-campeonato-de-portugal
+Match: Portugal - II Divisao, Women | Slug: portugal-ii-divisao-women
+Match: Portugal - League Cup | Slug: portugal-league-cup
+Match: Portugal - Liga Portugal | Slug: portugal-liga-portugal
+Match: Portugal - Liga Portugal 2 | Slug: portugal-liga-portugal-2
+Match: Portugal - Liga Portugal 3 | Slug: portugal-liga-portugal-3
+Match: Portugal - Taca de Portugal | Slug: portugal-taca-de-portugal
+Match: Portugal - U19 Campeonato Nacional | Slug: portugal-u19-campeonato-nacional
+Match: Portugal - U23 Liga Revelacao | Slug: portugal-u23-liga-revelacao
+Match: Rwanda - Premier League | Slug: rwanda-premier-league
+Match: Scotland - Challenge Cup | Slug: scotland-challenge-cup
+Match: Scotland - Championship | Slug: scotland-championship
+Match: Scotland - Championship | Slug: scotland-championship
+Match: Scotland - League 1 | Slug: scotland-league-1
+Match: Scotland - League 2 | Slug: scotland-league-2
+Match: Scotland - Premier League 2, Women | Slug: scotland-premier-league-2-women
+Match: Scotland - Premier League 2, Women | Slug: scotland-premier-league-2-women
+Match: Scotland - Premier League Cup, Women | Slug: scotland-premier-league-cup-women
+Match: Scotland - Premier League Cup, Women | Slug: scotland-premier-league-cup-women
+Match: Scotland - Premier League, Women | Slug: scotland-premier-league-women
+Match: Scotland - Premier League, Women | Slug: scotland-premier-league-women
+Match: Scotland - Premiership | Slug: scotland-premiership
+Match: Senegal - Ligue 1 | Slug: senegal-ligue-1
+Match: Simulated Reality League - Bundesliga SRL | Slug: simulated-reality-league-bundesliga-srl
+Match: Simulated Reality League - Eredivisie SRL | Slug: simulated-reality-league-eredivisie-srl
+Match: Simulated Reality League - Premier League SRL | Slug: simulated-reality-league-premier-league-srl
+Match: Simulated Reality League - Serie A SRL | Slug: simulated-reality-league-serie-a-srl
+Match: Singapore - Premier League | Slug: singapore-premier-league
+Match: Singapore - Premier League 2 | Slug: singapore-premier-league-2
+Match: South Africa - Championship | Slug: south-africa-championship
+Match: Tanzania - Championship League | Slug: tanzania-championship-league
+Match: Tanzania - Premier League | Slug: tanzania-premier-league
+Match: Trinidad and Tobago - TT Premier League | Slug: trinidad-and-tobago-tt-premier-league
+Match: Uganda - Premier League | Slug: uganda-premier-league
+Match: Wales - Cymru Championship South | Slug: wales-cymru-championship-south
+Match: Wales - Cymru Championship, North | Slug: wales-cymru-championship-north

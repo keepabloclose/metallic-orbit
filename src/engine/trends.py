@@ -94,86 +94,97 @@ class TrendsAnalyzer:
                 
         return deduped
 
+    def check_rate_trend(self, series, label_base, thresholds=[1.5, 2.5, 3.5], suffix="", n=10, min_rate=0.8):
+        """
+        Checks for high frequency of Over X events in the last N matches.
+        Allows for '8/10' style trends instead of strict streaks.
+        """
+        subset = series.head(n)
+        if len(subset) < 3: return [] # Min sample
+        
+        candidates = []
+        best_trend = None
+        best_priority = -1
+
+        # Check each threshold (e.g. Over 1.5, Over 2.5)
+        for thresh in thresholds:
+            # Count hits
+            hits = (subset > thresh).sum()
+            total = len(subset)
+            rate = hits / total
+            
+            if rate >= min_rate:
+                # Logic to format "Over 1.5" vs "Over 0.5"
+                # If threshold is 1.5, it means > 1.5 (2+ goals)
+                desc = f"+{thresh} {label_base} L{hits}/{total}{suffix}"
+                
+                # Priority: Higher threshold is better IF rate is maintained? 
+                # Or Higher Rate is better?
+                # Usually "Over 2.5 L9/10" > "Over 1.5 L10/10" because it's higher value.
+                # Priority = rate * threshold
+                priority = rate * thresh
+                
+                if priority > best_priority:
+                   best_priority = priority
+                   best_trend = desc
+
+        # Also check UNDER trends for Goals?
+        # Creating a separate check for Unders might be cleaner, but let's stick to Overs for now as requested by "Over 1.5".
+        # If the user wants Unders, we'd need a separate call.
+        
+        return [best_trend] if best_trend else []
+
     def _check_all_streaks(self, df, label_suffix):
         """
-        Runs adaptive streak checks on all relevant columns.
+        Runs rate-based checks on all relevant columns.
         """
         file_trends = []
         
         # Helper to format suffix
-        suffix = f" {label_suffix}" if label_suffix != "global" else " global" # Always show context if user wants specific info
+        suffix = f" {label_suffix}" if label_suffix != "global" else " global"
         if label_suffix == "global": suffix = " global"
         
-        # 1. Goals
-        file_trends.extend(self.check_adaptive_streak(df['TotalGoals'], "Goles", min_val_limit=1.5, suffix=suffix))
-        file_trends.extend(self.check_adaptive_streak(df['GoalsFor'], "Goles Equipo", min_val_limit=0.5, suffix=suffix)) # e.g. Team Over 0.5
+        # 1. Goals (Match Total)
+        # Check Over 1.5, 2.5, 3.5
+        trends = self.check_rate_trend(df['TotalGoals'], "Goles", thresholds=[1.5, 2.5, 3.5], suffix=suffix)
+        if not trends: 
+             # If no Over trends, check Under 2.5, 3.5?
+             # Simple Under Check: Count < 2.5
+             hits_u25 = (df['TotalGoals'].head(10) < 2.5).sum()
+             if hits_u25 >= 8: file_trends.append(f"-2.5 Goles L{hits_u25}/10{suffix}")
+             else:
+                 hits_u35 = (df['TotalGoals'].head(10) < 3.5).sum()
+                 if hits_u35 >= 8: file_trends.append(f"-3.5 Goles L{hits_u35}/10{suffix}")
+        else:
+            file_trends.extend(trends)
+
+        # 2. Team Goals
+        # Check Over 0.5, 1.5, 2.5
+        file_trends.extend(self.check_rate_trend(df['GoalsFor'], "Goles Equipo", thresholds=[0.5, 1.5, 2.5], suffix=suffix))
         
-        # 2. Corners
-        file_trends.extend(self.check_adaptive_streak(df['TotalCorners'], "Córners", min_val_limit=7.5, suffix=suffix))
-        file_trends.extend(self.check_adaptive_streak(df['CornersFor'], "Córners Equipo", min_val_limit=3.5, suffix=suffix))
+        # 3. Corners
+        # Check Over 7.5, 8.5, 9.5
+        file_trends.extend(self.check_rate_trend(df['TotalCorners'], "Córners", thresholds=[7.5, 8.5, 9.5, 10.5], suffix=suffix))
+        file_trends.extend(self.check_rate_trend(df['CornersFor'], "Córners Equipo", thresholds=[3.5, 4.5, 5.5], suffix=suffix))
         
-        # 3. Cards
-        file_trends.extend(self.check_adaptive_streak(df['TotalCards'], "Tarjetas", min_val_limit=2.5, suffix=suffix))
-        file_trends.extend(self.check_adaptive_streak(df['CardsFor'], "Tarjetas Equipo", min_val_limit=1.5, suffix=suffix))
+        # 4. Cards
+        # Check Over 2.5, 3.5, 4.5
+        file_trends.extend(self.check_rate_trend(df['TotalCards'], "Tarjetas", thresholds=[2.5, 3.5, 4.5, 5.5], suffix=suffix))
+        file_trends.extend(self.check_rate_trend(df['CardsFor'], "Tarjetas Equipo", thresholds=[0.5, 1.5, 2.5], suffix=suffix))
         
-        # 4. Comparisons (Boolean Streaks)
-        # "Más córners que el rival" -> column 'MoreCorners' is boolean
-        def check_bool_streak(col, desc):
-            # Check L5, L6...
-            for n in [5, 6, 7, 8, 9, 10]:
-                subset = df[col].head(n)
-                if len(subset) < n: continue
-                hits = subset.sum()
-                # 80% threshold
-                if hits / n >= 0.8:
-                    return [f"{desc} L{hits}/{n}{suffix}"]
+        # 5. Comparisons (Boolean)
+        def check_bool_rate(col, desc):
+            subset = df[col].head(10)
+            hits = subset.sum()
+            if hits >= 8: # 80% 
+                return [f"{desc} L{hits}/10{suffix}"]
             return []
 
-        file_trends.extend(check_bool_streak('MoreCorners', "Más córners que el rival"))
-        file_trends.extend(check_bool_streak('MoreCards', "Más tarjetas que el rival"))
-        file_trends.extend(check_bool_streak('BTTS', "Ambos Marcan"))
+        file_trends.extend(check_bool_rate('MoreCorners', "Más córners que el rival"))
+        file_trends.extend(check_bool_rate('MoreCards', "Más tarjetas que el rival"))
+        file_trends.extend(check_bool_rate('BTTS', "Ambos Marcan"))
         
         return file_trends
-
-    def check_adaptive_streak(self, series, label_base, min_val_limit=1.5, suffix="", n_matches=[10, 8, 5]):
-        """
-        Refined Adaptive Streak: Checks Over X.
-        """
-        candidates = []
-        for n in n_matches:
-            subset = series.head(n)
-            if len(subset) < n: continue
-            
-            min_v = subset.min() # Pure 100% streak
-            
-            # If 100% streak
-            if min_v > min_val_limit:
-                thresh = min_v - 0.5
-                # Verify it's a "clean" number (e.g. 1.5, 2.5) if data is integer-like
-                # But threshold is implicitly .5 for Over markets
-                candidates.append({
-                    'priority': thresh * n, # Score
-                    'desc': f"+{thresh} {label_base} L{n}/{n}{suffix}"
-                })
-                
-            # Allow 1 fail? (e.g. 9/10).
-            # If n >= 8, allow 1 miss.
-            if n >= 8:
-                sorted_vals = sorted(subset.values)
-                # Drop lowest
-                min_v_partial = sorted_vals[1] # 2nd lowest
-                if min_v_partial > min_val_limit:
-                    thresh = min_v_partial - 0.5
-                    candidates.append({
-                         'priority': (thresh * n) - 5, # Penalty
-                         'desc': f"+{thresh} {label_base} L{n-1}/{n}{suffix}"
-                    })
-
-        if not candidates: return []
-        
-        # Sort by priority
-        candidates.sort(key=lambda x: x['priority'], reverse=True)
-        return [candidates[0]['desc']]
 
     def get_match_trends(self, home_team, away_team):
         """

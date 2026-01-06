@@ -1,0 +1,30 @@
+Match: Andorra - Primera Divisio | Slug: andorra-primera-divisio
+Match: Costa Rica - Primera Division, Clausura | Slug: costa-rica-primera-division-clausura
+Match: Simulated Reality League - LaLiga SRL | Slug: simulated-reality-league-laliga-srl
+Match: Spain - Copa del Rey | Slug: spain-copa-del-rey
+Match: Spain - LaLiga | Slug: spain-laliga
+Match: Spain - LaLiga 2 | Slug: spain-laliga-2
+Match: Spain - Primera Division Women | Slug: spain-primera-division-women
+Match: Spain - Primera Federacion | Slug: spain-primera-federacion
+Match: Spain - Primera Federacion, Women | Slug: spain-primera-federacion-women
+Match: Spain - Segunda Federacion | Slug: spain-segunda-federacion
+Match: Spain - Supercopa | Slug: spain-supercopa
+Match: Spain - U19 Division de Honor Juvenil | Slug: spain-u19-division-de-honor-juvenil
+Match: Spain Amateur - Tercera Federacion, Group 1 | Slug: spain-amateur-tercera-federacion-group-1
+Match: Spain Amateur - Tercera Federacion, Group 10 | Slug: spain-amateur-tercera-federacion-group-10
+Match: Spain Amateur - Tercera Federacion, Group 11 | Slug: spain-amateur-tercera-federacion-group-11
+Match: Spain Amateur - Tercera Federacion, Group 12 | Slug: spain-amateur-tercera-federacion-group-12
+Match: Spain Amateur - Tercera Federacion, Group 13 | Slug: spain-amateur-tercera-federacion-group-13
+Match: Spain Amateur - Tercera Federacion, Group 14 | Slug: spain-amateur-tercera-federacion-group-14
+Match: Spain Amateur - Tercera Federacion, Group 15 | Slug: spain-amateur-tercera-federacion-group-15
+Match: Spain Amateur - Tercera Federacion, Group 16 | Slug: spain-amateur-tercera-federacion-group-16
+Match: Spain Amateur - Tercera Federacion, Group 17 | Slug: spain-amateur-tercera-federacion-group-17
+Match: Spain Amateur - Tercera Federacion, Group 18 | Slug: spain-amateur-tercera-federacion-group-18
+Match: Spain Amateur - Tercera Federacion, Group 2 | Slug: spain-amateur-tercera-federacion-group-2
+Match: Spain Amateur - Tercera Federacion, Group 3 | Slug: spain-amateur-tercera-federacion-group-3
+Match: Spain Amateur - Tercera Federacion, Group 4 | Slug: spain-amateur-tercera-federacion-group-4
+Match: Spain Amateur - Tercera Federacion, Group 5 | Slug: spain-amateur-tercera-federacion-group-5
+Match: Spain Amateur - Tercera Federacion, Group 6 | Slug: spain-amateur-tercera-federacion-group-6
+Match: Spain Amateur - Tercera Federacion, Group 7 | Slug: spain-amateur-tercera-federacion-group-7
+Match: Spain Amateur - Tercera Federacion, Group 8 | Slug: spain-amateur-tercera-federacion-group-8
+Match: Spain Amateur - Tercera Federacion, Group 9 | Slug: spain-amateur-tercera-federacion-group-9

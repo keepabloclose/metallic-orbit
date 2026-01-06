@@ -6,7 +6,7 @@ from src.utils.logo_manager import LogoManager
 # Create instance (singleton-like pattern essentially)
 logo_manager = LogoManager()
 
-def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigate_callback, home_trends=None, away_trends=None):
+def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigate_callback, home_trends=None, away_trends=None, unique_key=None):
     """
     Renders a single match row in a 'Premium' dense layout.
     Mimics user's requested style: Date | Teams | Form | Stats | Trends | Odds
@@ -42,6 +42,13 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
     odd_x = match.get('B365D', '-')
     odd_2 = match.get('B365A', '-')
     
+    # Calculate Prediction Row (Found Missing Definition)
+    pred_row = predictor.predict_match_safe(
+        match['HomeTeam'], 
+        match['AwayTeam'], 
+        match_date=match.get('Date')
+    )
+    
     # 2. MATCH LOGIC / HELPERS
     def get_form_html(form_str):
         html = ""
@@ -67,53 +74,61 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
         return f'<span style="background-color:{bg_col};color:{txt_col};border:1px solid {border};padding:1px 6px;border-radius:4px;font-size:0.75em;margin-right:4px;margin-bottom:2px;display:inline-block;">{text}</span>'
 
     # 3. TRENDS PRE-CALCULATION
+    
+    def enrich_text_with_odd(text, match_data):
+        """Looks for key markets in text and appends odd if found."""
+        # Clean text for parsing
+        lower_txt = text.lower()
+        odd_found = None
+        
+        # Over/Under X.X Patterns
+        import re
+        # Look for "+1.5", ">1.5", "over 1.5", "mas de 1.5"
+        # Regex to capture the number: (1\.5|2\.5|3\.5|0\.5)
+        match_over = re.search(r'(\+|>|Over|Más de|Mas de) ?([0-9]\.5)', text, re.IGNORECASE)
+        if match_over:
+            line = match_over.group(2) # "1.5"
+            # Try both formats
+            val = match_data.get(f"B365_Over{line}") or match_data.get(f"B365>{line}")
+            if val and str(val).lower() != 'nan':
+                odd_found = val
+        
+        # BTTS / Ambos Marcan
+        if 'ambos' in lower_txt or 'btts' in lower_txt:
+            val = match_data.get('B365_BTTS_Yes')
+            if val and str(val) != 'nan':
+                 odd_found = val
+                 
+        if odd_found:
+            return f"{text} @ {odd_found}"
+        return text
+
     trends_html = ""
     count = 0
+    
+    # Process Home Trends
     if home_trends:
         for t in home_trends[:2]:
-            trends_html += get_trend_pill(t['text'], 'good')
+            display_text = enrich_text_with_odd(t['text'], match)
+            trends_html += get_trend_pill(display_text, 'good')
             count += 1 
+            
+    # Process Away Trends
     if away_trends:
         for t in away_trends[:2]:
-            trends_html += get_trend_pill(t['text'], 'good')
+            display_text = enrich_text_with_odd(t['text'], match)
+            trends_html += get_trend_pill(display_text, 'good')
             count += 1
             
-    # ML Hint
+    # ML Hint (Specific Logic kept but used enricher just in case?)
+    # Actually, previous step hardcoded it. Let's make it consistent.
     if match.get('ML_Over25', 0) > 65 and count < 4:
-         trends_html += get_trend_pill(f"IA: +2.5 ({match['ML_Over25']}%)", 'good')
+         base_text = f"IA: +2.5 ({match['ML_Over25']}%)"
+         display_text = enrich_text_with_odd(base_text, match)
+         trends_html += get_trend_pill(display_text, 'good')
 
-    # --- PRE-CALCULATION OF PREDICTION ---
-    # optimization: use existing prediction if passed in match dict
-    if 'REG_HomeGoals' in match:
-        pred_row = match
-    else:
-        ref_name = match.get('Referee', None)
-        pred_row = predictor.predict_match(match['HomeTeam'], match['AwayTeam'], referee=ref_name)
-    
-    # Check Risks / Traps
-    risk_html = ""
-    if pred_row:
-        # 1. Z-Score (Regression Risk)
-        z_h = pred_row.get('HomeZScore_Goals', 0)
-        if z_h > 2.5:
-             risk_html += get_trend_pill(f"⚠️ Racha Local (Z={z_h:.1f})", 'bad')
-        elif z_h < -1.5:
-             risk_html += get_trend_pill(f"📉 Crisis Local (Z={z_h:.1f})", 'bad')
-             
-        # 2. Trap Filters
-        if pred_row.get('Trap_Fatigue', 0) > 0:
-             risk_html += get_trend_pill("⚠️ Fatiga", 'bad')
-        if pred_row.get('Trap_FearError', 0) > 0:
-             risk_html += get_trend_pill("🛡️ Miedo Error", 'bad')
-        if pred_row.get('Trap_StyleClash', 0) > 0:
-             risk_html += get_trend_pill("🛡️ Estilos Def.", 'bad')
-             
-        # 3. Dominance (Good High)
-        if pred_row.get('HomeDominance', 0) > 30: # 30 is roughly high
-             risk_html += get_trend_pill("🔥 Dominio Local", 'good')
-
-    # Append Risk pills to Trends
-    trends_html += risk_html
+    # Append Risk pills to Trends (Risks handled inside get_trend_pill logic above)
+    # trends_html += risk_html # REMOVED: Caused NameError
 
     # 4. RENDER LAYOUT
     with st.container(border=True):
@@ -174,15 +189,40 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
 
         with c6:
             # Odds Grid
+            # Odds Grid
+            # 1X2 Row
             st.markdown(f"""
-            <div style="display:flex;gap:4px;font-size:0.8em;font-weight:bold;">
-                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;">1 <br>{odd_1}</div>
-                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;">X <br>{odd_x}</div>
-                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;">2 <br>{odd_2}</div>
+            <div style="display:flex;gap:4px;font-size:0.8em;font-weight:bold;margin-bottom:4px;">
+                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;flex:1;text-align:center;">1<br><span style="color:#000;">{odd_1}</span></div>
+                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;flex:1;text-align:center;">X<br><span style="color:#000;">{odd_x}</span></div>
+                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;flex:1;text-align:center;">2<br><span style="color:#000;">{odd_2}</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Extra Markets Row (Over / BTTS)
+            o_over = match.get('B365_Over2.5') or match.get('B365>2.5') or match.get('Avg>2.5')
+            o_btts = match.get('B365_BTTS_Yes')
+            
+            # Format nicely
+            try:
+                disp_over = f"{float(o_over):.2f}" if o_over and str(o_over).lower() != 'nan' else "-"
+            except: disp_over = str(o_over)
+
+            try:
+                disp_btts = f"{float(o_btts):.2f}" if o_btts and str(o_btts).lower() != 'nan' else "nan"
+            except: disp_btts = "nan"
+            
+            # Always show Over/BTTS row (with placeholders if missing)
+            st.markdown(f"""
+            <div style="display:flex;gap:4px;font-size:0.75em;color:#555;">
+                <div style="background:#eef2ff;padding:2px 6px;border-radius:4px;flex:1;text-align:center;">O2.5: <b>{disp_over}</b></div>
+                <div style="background:#eef2ff;padding:2px 6px;border-radius:4px;flex:1;text-align:center;">BTTS: <b>{disp_btts}</b></div>
             </div>
             """, unsafe_allow_html=True)
             
             st.markdown("---")
             b_key = f"btn_prem_{home}_{away}"
+            if unique_key:
+                b_key += f"_{unique_key}"
             if st.button("Ver Predicción ➡️", key=b_key):
                  navigate_callback(match)

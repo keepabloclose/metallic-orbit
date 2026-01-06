@@ -1,0 +1,14 @@
+   League                             History        Upcoming     Odds Notes
+0      E0  OK (380 matches, Last: 2025-05-25)  ERROR: 'B365H'     FAIL      
+1     SP1  OK (380 matches, Last: 2025-05-25)  ERROR: 'B365H'     FAIL      
+2     SP2  OK (462 matches, Last: 2025-06-01)  ERROR: 'B365H'     FAIL      
+3      D1  OK (306 matches, Last: 2025-05-17)  ERROR: 'B365H'     FAIL      
+4      I1  OK (380 matches, Last: 2025-05-25)  ERROR: 'B365H'     FAIL      
+5      F1  OK (306 matches, Last: 2025-05-17)  ERROR: 'B365H'     FAIL      
+6      E1  OK (552 matches, Last: 2025-05-03)  ERROR: 'B365H'     FAIL      
+7      P1  OK (306 matches, Last: 2025-05-17)  OK (6 matches)  MISSING      
+8      N1  OK (306 matches, Last: 2025-05-18)  OK (6 matches)  MISSING      
+9      B1  OK (312 matches, Last: 2025-05-25)  OK (6 matches)  MISSING      
+10     G1  OK (233 matches, Last: 2025-05-18)  OK (6 matches)  MISSING      
+11    SCO                               EMPTY  OK (6 matches)  MISSING      
+12     T1  OK (342 matches, Last: 2025-06-01)  OK (6 matches)  MISSING      

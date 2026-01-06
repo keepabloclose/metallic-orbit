@@ -214,6 +214,87 @@ class FeatureEngineer:
         # Fill NA
         self.df = self.df.fillna(0) # Aggressive fillna for new columns
         
+        # --- NEW: Rate-Based Features (Matches Strategies.py) ---
+        # We need to calculate the % of last N games where event happened.
+        # Event Logic on 'all_stats'
+        all_stats['IsOver25'] = ((all_stats['GoalsFor'] + all_stats['GoalsAgainst']) > 2.5).astype(int)
+        all_stats['IsBTTS'] = ((all_stats['GoalsFor'] > 0) & (all_stats['GoalsAgainst'] > 0)).astype(int)
+        all_stats['IsCleanSheet'] = (all_stats['GoalsAgainst'] == 0).astype(int)
+        all_stats['IsWin'] = (all_stats['GoalsFor'] > all_stats['GoalsAgainst']).astype(int)
+        all_stats['IsLoss'] = (all_stats['GoalsFor'] < all_stats['GoalsAgainst']).astype(int)
+        
+        # Calculate Rolling Means (Rates)
+        for metric in ['IsOver25', 'IsBTTS', 'IsCleanSheet', 'IsWin', 'IsLoss']:
+            all_stats[f'{metric}_Rate'] = all_stats.groupby('Team')[metric].transform(lambda x: x.shift(1).rolling(window=window, min_periods=3).mean())
+        
+        # Specific Aliases expected by Strategies
+        # HomeOver25_Rate, HomeBTTS_Rate, HomeCleanSheet_Rate
+        # HomeWinsLast5 -> Sum of IsWin
+        all_stats['WinsLast5'] = all_stats.groupby('Team')['IsWin'].transform(lambda x: x.shift(1).rolling(window=window, min_periods=3).sum())
+        all_stats['LossesLast5'] = all_stats.groupby('Team')['IsLoss'].transform(lambda x: x.shift(1).rolling(window=window, min_periods=3).sum())
+        
+        # Merge back Rate Features
+        rate_cols = ['IsOver25_Rate', 'IsBTTS_Rate', 'IsCleanSheet_Rate', 'WinsLast5', 'LossesLast5']
+        
+        # For Home
+        self.df = self.df.merge(
+             all_stats[['Date', 'Team'] + rate_cols].rename(columns={
+                 'IsOver25_Rate': 'HomeOver25_Rate',
+                 'IsBTTS_Rate': 'HomeBTTS_Rate', 
+                 'IsCleanSheet_Rate': 'HomeCleanSheet_Rate',
+                 'WinsLast5': 'HomeWinsLast5',
+                 'LossesLast5': 'HomeLossesLast5'
+             }),
+             left_on=['Date', 'HomeTeam'],
+             right_on=['Date', 'Team'],
+             how='left'
+        ).drop(columns=['Team'])
+        
+        # For Away
+        self.df = self.df.merge(
+             all_stats[['Date', 'Team'] + rate_cols].rename(columns={
+                 'IsOver25_Rate': 'AwayOver25_Rate',
+                 'IsBTTS_Rate': 'AwayBTTS_Rate', 
+                 'IsCleanSheet_Rate': 'AwayCleanSheet_Rate',
+                 'WinsLast5': 'AwayWinsLast5',
+                 'LossesLast5': 'AwayLossesLast5'
+             }),
+             left_on=['Date', 'AwayTeam'],
+             right_on=['Date', 'Team'],
+             how='left'
+        ).drop(columns=['Team'])
+        
+        # --- NEW: Aliases for Strategy Compatibility ---
+        
+        # 1. StdDev Alias
+        if 'HomeStdGoalsFor' in self.df.columns:
+            self.df['HomeStdDevGoals'] = self.df['HomeStdGoalsFor']
+        if 'AwayStdGoalsFor' in self.df.columns:
+            self.df['AwayStdDevGoals'] = self.df['AwayStdGoalsFor']
+            
+        # 2. Z-Score Calculation (Global Base)
+        # We need a baseline. For backtesting, we can use the rolling global average of the whole dataset up to that point?
+        # Or just a static 1.45 approximation like Predictor uses.
+        avg_g_global = 1.45
+        
+        if 'HomeAvgGoalsFor' in self.df.columns and 'HomeStdDevGoals' in self.df.columns:
+             self.df['HomeZScore_Goals'] = (self.df['HomeAvgGoalsFor'] - avg_g_global) / (self.df['HomeStdDevGoals'].replace(0, 1))
+             
+        if 'AwayAvgGoalsFor' in self.df.columns and 'AwayStdDevGoals' in self.df.columns:
+             self.df['AwayZScore_Goals'] = (self.df['AwayAvgGoalsFor'] - avg_g_global) / (self.df['AwayStdDevGoals'].replace(0, 1))
+             
+        # 3. Z-Score xG (Dominance Proxy)
+        # Predictor: z_home_xg = (home_stats.get('DominanceFor', 25.0) - 25.0) / 10.0
+        if 'HomeDominanceFor' in self.df.columns:
+            self.df['HomeZScore_xG'] = (self.df['HomeDominanceFor'] - 25.0) / 10.0
+        else:
+            self.df['HomeZScore_xG'] = 0.0
+            
+        if 'AwayDominanceFor' in self.df.columns:
+            self.df['AwayZScore_xG'] = (self.df['AwayDominanceFor'] - 20.0) / 10.0 # Visitor baseline lower?
+        else:
+            self.df['AwayZScore_xG'] = 0.0
+
         return self.df
 
     def add_recent_form(self, window=5):

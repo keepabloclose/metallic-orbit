@@ -1,7 +1,7 @@
-
 import pandas as pd
 import numpy as np
 from src.engine.ml_engine import MLEngine
+from src.utils.normalization import NameNormalizer
 
 class Predictor:
     def __init__(self, historical_df):
@@ -22,195 +22,17 @@ class Predictor:
             self.history = self.history.sort_values('Date')
         
         # KEY FIX: Normalize names in the DataFrame itself so lookups match
+        # Now using Centralized Normalizer
         self.history['HomeTeam'] = self.history['HomeTeam'].apply(self.normalize_name)
         self.history['AwayTeam'] = self.history['AwayTeam'].apply(self.normalize_name)
         
     def normalize_name(self, name):
         """
         Normalizes team names to match the historical data.
+        Uses centralized utility.
         """
-        if not isinstance(name, str):
-            return str(name)
-            
-        name = name.strip()
-        
-        # Mapping from FixtureDownload/Common names TO Football-Data.co.uk names
-        mapping = {
-            # Spain
-            'Rayo Vallecano': 'Vallecano',
-            'CA Osasuna': 'Osasuna',
-            'RCD Mallorca': 'Mallorca',
-            'Athletic Club': 'Ath Bilbao',
-            'Real Betis': 'Betis',
-            'Real Sociedad': 'Sociedad',
-            'RC Celta': 'Celta',
-            'Celta de Vigo': 'Celta',
-            'Deportivo Alaves': 'Alaves',
-            'Spurs': 'Tottenham',
-            'Tottenham Hotspur': 'Tottenham',
-            'Man Utd': 'Man United',
-            'Manchester United': 'Man United',
-            'Man City': 'Man City',
-            'Manchester City': 'Man City',
-            'Wolves': 'Wolves',
-            'Wolverhampton': 'Wolves',
-            'Nottm Forest': "Nott'm Forest",
-            'Nottingham Forest': "Nott'm Forest",
-            'Sheffield Utd': 'Sheffield United',
-            # Germany (D1)
-            '1. FC Union Berlin': 'Union Berlin',
-            '1. FSV Mainz 05': 'Mainz',
-            'Mainz 05': 'Mainz',
-            'FC St. Pauli': 'St Pauli',
-            'St. Pauli': 'St Pauli',
-            '1. FC Heidenheim 1846': 'Heidenheim',
-            'Heidenheim': 'Heidenheim',
-            '1. FC Kln': 'FC Koln',
-            '1. FC Köln': 'FC Koln',
-            'FC Köln': 'FC Koln',
-            '1. FC Koln': 'FC Koln',
-            'Bayer 04 Leverkusen': 'Leverkusen',
-            'Bayer Leverkusen': 'Leverkusen',
-            'Borussia Mönchengladbach': "M'gladbach",
-            'Borussia Moenchengladbach': "M'gladbach",
-            'Borussia M.Gladbach': "M'gladbach",
-            'Borussia Monchengladbach': "M'gladbach",
-            'M\'gladbach': "M'gladbach",
-            'FC Bayern München': 'Bayern Munich',
-            'FC Bayern Munchen': 'Bayern Munich',
-            'FC Bayern Munich': 'Bayern Munich',
-            'Bayern Munich': 'Bayern Munich',
-            'VfL Wolfsburg': 'Wolfsburg',
-            'FC Augsburg': 'Augsburg',
-            'Eintracht Frankfurt': 'Ein Frankfurt',
-            'TSG 1899 Hoffenheim': 'Hoffenheim',
-            'VfL Bochum 1848': 'Bochum',
-            'VfL Bochum': 'Bochum',
-            'SV Werder Bremen': 'Werder Bremen',
-            'Holstein Kiel': 'Holstein Kiel',
-            'VfB Stuttgart': 'Stuttgart',
-            'Borussia Dortmund': 'Dortmund',
-            'RB Leipzig': 'RB Leipzig', # Usually matches
+        return NameNormalizer.normalize(name)
 
-            # France (F1)
-            'AS Monaco': 'Monaco',
-            'FC Lorient': 'Lorient', 
-            'Paris Saint-Germain': 'Paris SG',
-            'Paris Saint Germain': 'Paris SG',
-            'Paris SG': 'Paris SG',
-            'Olympique de Marseille': 'Marseille',
-            'Olympique Marseille': 'Marseille',
-            'Olympique Lyonnais': 'Lyon',
-            'Olympique Lyon': 'Lyon',
-            'Stade Rennais': 'Rennes',
-            'Stade Rennais FC': 'Rennes',
-            'OGC Nice': 'Nice',
-            'Lille OSC': 'Lille',
-            'RC Lens': 'Lens',
-            'Stade Brestois 29': 'Brest',
-            'Stade de Reims': 'Reims',
-            'Montpellier HSC': 'Montpellier',
-            'RC Strasbourg Alsace': 'Strasbourg',
-            'Toulouse FC': 'Toulouse',
-            'FC Nantes': 'Nantes',
-            'Le Havre AC': 'Le Havre',
-            'AJ Auxerre': 'Auxerre',
-            'AS Saint-Étienne': 'St Etienne',
-            'AS Saint-Etienne': 'St Etienne',
-            'Angers SCO': 'Angers',
-            'Paris FC': 'Paris FC', # Check if likely F2
-            'FC Metz': 'Metz',
-            
-            # Spain Encoding/Promoted
-            'Deportivo Alavés': 'Alaves',
-            'Deportivo AlavÚs': 'Alaves',
-            'Alavés': 'Alaves',
-            'Atlético de Madrid': 'Ath Madrid',
-            'AtlÚtico de Madrid': 'Ath Madrid',
-            'Atletico Madrid': 'Ath Madrid',
-            'Girona FC': 'Girona',
-            'Real Oviedo': 'Oviedo',
-            'Real Sociedad': 'Sociedad',
-            
-            # Germany Misc
-            'SV Werder Bremen': 'Werder Bremen',
-            'TSG Hoffenheim': 'Hoffenheim',
-            'Sport-Club Freiburg': 'Freiburg',
-            'SC Freiburg': 'Freiburg',
-            'Hamburger SV': 'Hamburg',
-            # La Liga 2 (SP2) & Updates
-            'Levante UD': 'Levante',
-            'Real Zaragoza': 'Zaragoza',
-            'Sporting de Gijón': 'Sp Gijon',
-            'Sporting Gijon': 'Sp Gijon',
-            'Sporting Gijón': 'Sp Gijon',
-            'Racing de Santander': 'Santander',
-            'Racing Santander': 'Santander',
-            'SD Eibar': 'Eibar',
-            'Granada CF': 'Granada',
-            'Elche CF': 'Elche',
-            'CD Tenerife': 'Tenerife',
-            'Albacete Balompié': 'Albacete',
-            'Burgos CF': 'Burgos',
-            'FC Cartagena': 'Cartagena',
-            'CD Castellón': 'Castellon',
-            'CD Eldense': 'Eldense',
-            'Cordoba CF': 'Cordoba',
-            'SD Huesca': 'Huesca',
-            'Malaga CF': 'Malaga',
-            'Mirandes': 'Mirandes',
-            'CD Mirandés': 'Mirandes',
-            'Mirandés': 'Mirandes',
-            'Racing Club Ferrol': 'Ferrol',
-            'UD Almería': 'Almeria',
-            'Cadiz CF': 'Cadiz',
-            
-            # User-Specific / Future / Copa Teams
-            'Cultural Leonesa': 'Cultural Leonesa',
-            'Real Sociedad B': 'Sociedad B',
-            'AD Ceuta': 'Ceuta',
-            'FC Andorra': 'Andorra',
-            'S.D. Huesca': 'Huesca',
-            'U.D. Las Palmas': 'Las Palmas',
-            'Las Palmas': 'Las Palmas',
-            'CD Leganes': 'Leganes',
-            'Leganés': 'Leganes',
-            'Deportivo': 'Dep. La Coruna', # Assumed
-            'Racing de Santander': 'Santander', # Ensure match
-            'Real Zaragoza': 'Zaragoza',
-
-            # Getafe specific fix
-            'Getafe CF': 'Getafe',
-            'Rayo Vallecano': 'Vallecano',
-            'Girona FC': 'Girona',
-            
-            # English Championship (E1)
-            'Leeds United': 'Leeds',
-            'Sunderland AFC': 'Sunderland',
-            'West Bromwich Albion': 'West Brom',
-            'West Bromwich': 'West Brom',
-            'Blackburn Rovers': 'Blackburn',
-            'Preston North End': 'Preston',
-            'Sheffield Wednesday': 'Sheffield Weds',
-            'Queens Park Rangers': 'QPR',
-            'Coventry City': 'Coventry',
-            'Stoke City': 'Stoke',
-            'Hull City': 'Hull',
-            'Middlesbrough FC': 'Middlesbrough',
-            'Sheffield United': 'Sheffield United',
-            'Burnley FC': 'Burnley',
-            'Luton Town': 'Luton',
-            'Norwich City': 'Norwich',
-            'Watford FC': 'Watford',
-            'Bristol City': 'Bristol City',
-            'Cardiff City': 'Cardiff',
-            'Derby County': 'Derby',
-            'Oxford United': 'Oxford',
-            'Portsmouth FC': 'Portsmouth',
-            'Plymouth Argyle': 'Plymouth',
-            'Swansea City': 'Swansea',
-        }
-        return mapping.get(name, name)
 
     def get_latest_stats(self, team):
         """
@@ -389,7 +211,7 @@ class Predictor:
         
         return {'AvgCards': avg_cards if pd.notna(avg_cards) else 4.0, 'Matches': len(recent)}
 
-    def predict_match_safe(self, home_team, away_team, referee=None, match_date=None): 
+    def predict_match_safe(self, home_team, away_team, referee=None, match_date=None, known_odds=None): 
         home_stats = self.get_latest_stats(home_team)
         away_stats = self.get_latest_stats(away_team)
         
@@ -503,11 +325,24 @@ class Predictor:
         if ml_preds:
             row.update(ml_preds)
         
-        # --- ODDS HANDLING ---
-        if 'Real_B365H' in row and pd.notna(row['Real_B365H']):
+        # 0. Check KNOWN ODDS (fetched from API)
+        if known_odds and 'B365H' in known_odds and pd.notna(known_odds['B365H']):
+             row['B365H'] = known_odds.get('B365H')
+             row['B365D'] = known_odds.get('B365D')
+             row['B365A'] = known_odds.get('B365A')
+             
+             # Pass ALL other known odds (Over X.X, BTTS, etc.)
+             for k, v in known_odds.items():
+                 if k.startswith('B365'):
+                     row[k] = v
+             
+        # 1. Check REAL ODDS (csv)
+        elif 'Real_B365H' in row and pd.notna(row['Real_B365H']):
             row['B365H'] = row['Real_B365H']
             row['B365D'] = row['Real_B365D']
             row['B365A'] = row['Real_B365A']
+            
+        # 2. Synthetic Calculation
         else:
             if 'ML_HomeWin' in row:
                 h_prob = row['ML_HomeWin'] / 100.0
@@ -530,7 +365,6 @@ class Predictor:
                     a_prob = a_p / (h_p + a_p + 0.5)
                 d_prob = 1 - h_prob - a_prob
                 if d_prob < 0.1: d_prob = 0.25
-
             margin_adjustment = 0.95 
             row['B365H'] = round(1 / (h_prob + 0.001) * margin_adjustment, 2)
             row['B365A'] = round(1 / (a_prob + 0.001) * margin_adjustment, 2)
@@ -576,9 +410,15 @@ class Predictor:
             date = row.get('Date', pd.Timestamp.now())
             
             try:
+                # Extract odds if available from upcoming feed
+                current_odds = {}
+                if 'B365H' in row and pd.notna(row['B365H']):
+                    # Capture ALL B365 columns (dynamic markets)
+                    current_odds = {k: v for k, v in row.items() if str(k).startswith('B365')}
+                
                 # This returns a FULL row with features ('HomePPG', 'HomeAvgGoalsFor' etc.)
                 # AND predictions ('B365H', 'est_odd_over' etc.)
-                enriched_row = self.predict_match_safe(home, away, match_date=date)
+                enriched_row = self.predict_match_safe(home, away, match_date=date, known_odds=current_odds)
                 
                 # Merge with original row data (e.g. Div, Time)
                 # enriched_row is a dict, row is a Series

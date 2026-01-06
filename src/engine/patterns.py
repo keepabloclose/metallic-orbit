@@ -1,4 +1,5 @@
 from src.engine.strategies import PREMATCH_PATTERNS
+import pandas as pd
 
 class PatternAnalyzer:
     def __init__(self, df):

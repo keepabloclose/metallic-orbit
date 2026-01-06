@@ -59,8 +59,12 @@ def run_backtest():
     pd.set_option('display.width', 1000)
     
     # Select cols to show
-    cols = ['pattern_name', 'matches', 'probability', 'roi', 'EV']
-    print(summary[cols].to_string(index=False))
+    # Select cols to show
+    available_cols = ['pattern_name', 'matches', 'probability']
+    if 'roi' in summary.columns: available_cols.append('roi')
+    if 'EV' in summary.columns: available_cols.append('EV')
+    
+    print(summary[available_cols].to_string(index=False))
     
     print("\n[OK] Backtest finalizado.")
 
