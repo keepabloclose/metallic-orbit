@@ -594,98 +594,78 @@ with tab1:
                                     best_pattern = patterns[0]
                                     
                                     with st.container(border=True):
-                                        c1, c2, c3 = st.columns([3, 2, 2])
+                                        c1, c2 = st.columns([1, 1]); c3 = None
                                         
                                         with c1:
                                             match_label = f"{row['HomeTeam']} vs {row['AwayTeam']}"
                                             st.subheader(match_label)
                                             st.caption(f"📅 {row['Date']} | ⏰ {row['Time']}")
                                             
-                                        with c2:
-                                            # DYNAMIC METRICS based on Best Pattern
-                                            st.markdown("**Métricas Clave:**")
-                                            stats = row.get('stats', {})
-                                            
-                                            bp_name = best_pattern['suggestion']
-                                            
-                                            # Default / Init
-                                            m_col1, m_col2 = st.columns(2)
-                                            
-                                            # Customize based on pattern keywords
-                                            if "Local" in bp_name or "Victoria" in bp_name or "Choque" in bp_name or "Visitante" in bp_name:
-                                                # Show Result Streak
-                                                form_h = trends_analyzer_forms.get_recent_form(row['HomeTeam'])
-                                                form_a = trends_analyzer_forms.get_recent_form(row['AwayTeam'])
-                                                
-                                                m_col1.metric("Forma 🏠 (L5)", form_h)
-                                                m_col2.metric("Forma ✈️ (L5)", form_a)
-                                                
-                                            elif "Córner" in bp_name:
-                                                # Corners: For / Against
-                                                h_for = stats.get('HomeAvgCornersFor', 0)
-                                                h_ag = stats.get('HomeAvgCornersAgainst', 0)
-                                                a_for = stats.get('AwayAvgCornersFor', 0)
-                                                a_ag = stats.get('AwayAvgCornersAgainst', 0)
-                                                
-                                                m_col1.metric(f"{row['HomeTeam']}", f"{h_for:.1f} / {h_ag:.1f} (C/Enc)")
-                                                m_col2.metric(f"{row['AwayTeam']}", f"{a_for:.1f} / {a_ag:.1f} (C/Enc)")
-
-
-                                            elif "Goles" in bp_name or "Over" in bp_name or "Seguro" in bp_name or "BTTS" in bp_name or "Ambos" in bp_name or "Marcan" in bp_name:
-                                                # Goals: Scored / Conceded
-                                                h_gf = stats.get('HomeAvgGoalsFor', 0)
-                                                h_ga = stats.get('HomeAvgGoalsAgainst', 0)
-                                                a_gf = stats.get('AwayAvgGoalsFor', 0)
-                                                a_ga = stats.get('AwayAvgGoalsAgainst', 0)
-                                                
-                                                m_col1.metric("🏠 Goles (F/C)", f"{h_gf:.1f} / {h_ga:.1f}")
-                                                m_col2.metric("✈️ Goles (F/C)", f"{a_gf:.1f} / {a_ga:.1f}")
-                                                
-                                            else:
-                                                # Fallback: Goals (safest metric)
-                                                h_gf = stats.get('HomeAvgGoalsFor', 0)
-                                                h_ga = stats.get('HomeAvgGoalsAgainst', 0)
-                                                a_gf = stats.get('AwayAvgGoalsFor', 0)
-                                                a_ga = stats.get('AwayAvgGoalsAgainst', 0)
-                                                
-                                                m_col1.metric("🏠 Goles (F/C)", f"{h_gf:.1f} / {h_ga:.1f}")
-                                                m_col2.metric("✈️ Goles (F/C)", f"{a_gf:.1f} / {a_ga:.1f}")
-                                            
-                                            # Quote Display
-                                            st.markdown("---")
-                                            q_col1, q_col2 = st.columns(2)
-                                            
-                                            # CORRECT FIX: Use the odd from the Best Pattern, not the arbitrary row meta
-                                            quote_val = best_pattern.get('odd')
-                                            
-                                            # DISPLAY LOGIC
-                                            
-                                            if quote_val and quote_val != "N/A":
-                                                # Check if it's real (heuristic: not None)
-                                                # If it's a string like "1.33", convert to float for check
-                                                try:
-                                                    val_float = float(str(quote_val).split()[0].replace('(', '')) 
-                                                    if val_float > 1.01:
-                                                        q_col1.markdown(f"**Cuota:** `{quote_val}` 💰")
-                                                except:
-                                                     q_col1.markdown(f"**Cuota:** `{quote_val}` 💰")
-
-                                            
-                                            # Odds Section (General)
-                                            st.markdown("**Cuotas (1X2):**")
+                                            # 1X2 Odds
                                             odds_h = row.get('B365H') or row.get('AvgH')
                                             odds_d = row.get('B365D') or row.get('AvgD')
                                             odds_a = row.get('B365A') or row.get('AvgA')
                                             
                                             if pd.notna(odds_h):
-                                                c_o1, c_o2, c_o3 = st.columns(3)
-                                                c_o1.metric("1", f"{odds_h}")
-                                                c_o2.metric("X", f"{odds_d}")
-                                                c_o3.metric("2", f"{odds_a}")
+                                                st.markdown(f"**1:** `{odds_h}` | **X:** `{odds_d}` | **2:** `{odds_a}`")
                                             else:
-                                                st.caption("Cuota no disponible todavía")
+                                                st.caption("Cuotas 1X2 no disp.")
+                                                
+                                            # Win Probabilities
+                                            p_home = int(row.get('ML_HomeWin', 0) * 100)
+                                            p_draw = int(row.get('ML_Draw', 0) * 100)
+                                            p_away = int(row.get('ML_AwayWin', 0) * 100)
                                             
-                                        with c3:
+                                            if p_home + p_draw + p_away > 0:
+                                                st.caption(f"**Prob. IA:** 🏠 `{p_home}%` | 🤝 `{p_draw}%` | ✈️ `{p_away}%`")
+                                            
+                                            # AI Score (Moved here)
+                                            pred_h_goals = int(row.get('REG_HomeGoals', 0))
+                                            pred_a_goals = int(row.get('REG_AwayGoals', 0))
+                                            st.markdown(f"**Predicción IA:** `{pred_h_goals} - {pred_a_goals}`")
+
+                                        with c2:
+                                            # AI PATTERNS (Suggested Bets)
+                                            for p in patterns:
+                                                color = "green" if p['prob'] > 75 else "orange"
+                                                odd_display = f" - 💰 {p['odd']}" if p.get('odd') and p['odd'] != 'N/A' else ""
+                                                st.markdown(f":{color}[**{p['suggestion']}**] ({p['prob']}%){odd_display}")
+                                            
+                                            st.divider()
+                                            
+                                            # COMPACT METRICS (Small Font)
+                                            stats = row.get('stats', {})
+                                            bp_name = best_pattern['suggestion']
+                                            
+                                            metric_text = "Datos insuficientes"
+                                            if "Local" in bp_name or "Victoria" in bp_name or "Choque" in bp_name or "Visitante" in bp_name:
+                                                form_h = trends_analyzer_forms.get_recent_form(row['HomeTeam'])
+                                                form_a = trends_analyzer_forms.get_recent_form(row['AwayTeam'])
+                                                metric_text = f"Forma: 🏠 {form_h} | ✈️ {form_a}"
+                                                
+                                            elif "Córner" in bp_name:
+                                                h_for = stats.get('HomeAvgCornersFor', 0)
+                                                h_ag = stats.get('HomeAvgCornersAgainst', 0)
+                                                a_for = stats.get('AwayAvgCornersFor', 0)
+                                                a_ag = stats.get('AwayAvgCornersAgainst', 0)
+                                                metric_text = f"Córners: 🏠 {h_for:.1f}/{h_ag:.1f} | ✈️ {a_for:.1f}/{a_ag:.1f}"
+
+                                            else: # Goles fallback
+                                                h_gf = stats.get('HomeAvgGoalsFor', 0)
+                                                h_ga = stats.get('HomeAvgGoalsAgainst', 0)
+                                                a_gf = stats.get('AwayAvgGoalsFor', 0)
+                                                a_ga = stats.get('AwayAvgGoalsAgainst', 0)
+                                                metric_text = f"Goles: 🏠 {h_gf:.1f}/{h_ga:.1f} | ✈️ {a_gf:.1f}/{a_ga:.1f}"
+                                            
+                                            # Display Metric in Small Font
+                                            st.markdown(f"<span style='font-size:0.8em; color:gray'>{metric_text}</span>", unsafe_allow_html=True)
+                                            
+                                            # BUTTON
+                                            m_data = row.to_dict()
+                                            b_key = f"btn_match_{row['HomeTeam']}_{row['AwayTeam']}_group"
+                                            st.button("Ver Partido ➡️", key=b_key, on_click=go_to_match, args=(m_data,))
+                                            
+                                        if False: # with c3:
                                             # AI PREDICTION (ML Engine)
                                             # 1. SHOW PATTERNS (The "Why")
                                             for p in patterns:
@@ -696,27 +676,19 @@ with tab1:
                                             st.divider()
 
                                             # 2. SHOW AI PREDICTIONS (Context)
-                                            st.markdown("**🧠 Predicción IA:**")
-                                            
+                                            # 2. SHOW AI PREDICTIONS (Context)
                                             # Correct Score (Always try to show)
                                             pred_h_goals = int(row.get('REG_HomeGoals', 0))
                                             pred_a_goals = int(row.get('REG_AwayGoals', 0))
-                                            st.markdown(f"**🎯 Marcador:** `{pred_h_goals} - {pred_a_goals}`")
+                                            
+                                            # COMPACT HEADER: Title + Score
+                                            st.markdown(f"**🧠 Predicción IA:** `{pred_h_goals} - {pred_a_goals}`")
 
-                                            # Win Probs
-                                            p_home = row.get('ML_HomeWin', 0)
-                                            p_draw = row.get('ML_Draw', 0)
-                                            p_away = row.get('ML_AwayWin', 0)
-
-                                            if p_home + p_draw + p_away > 0:
-                                                 st.progress(p_home, text=f"🏠 {row['HomeTeam']} {p_home}%")
-                                                 # st.progress(p_draw, text=f"🤝 Empate {p_draw}%") # Optional for space
-                                                 st.progress(p_away, text=f"✈️ {row['AwayTeam']} {p_away}%")
+                                            # Win Probs (Moved to C1 text)
                                             
                                             # BUTTON TO GO TO MATCH VIEW
-                                            m_data = row.to_dict()
-                                            b_key = f"btn_match_{row['HomeTeam']}_{row['AwayTeam']}_group"
-                                            st.button("Ver Partido ➡️", key=b_key, on_click=go_to_match, args=(m_data,))
+                                            # Button Removed form C3
+                                            pass
 
                                         
 
