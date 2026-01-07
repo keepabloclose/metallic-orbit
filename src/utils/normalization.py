@@ -30,6 +30,8 @@ class NameNormalizer:
             'Real Sociedad': 'Sociedad',
             'RC Celta': 'Celta',
             'Celta de Vigo': 'Celta',
+            'Sevilla FC': 'Sevilla',
+            'Sevilla': 'Sevilla',
             'Deportivo Alaves': 'Alaves',
             'Deportivo Alavés': 'Alaves',
             'Alavés': 'Alaves',
@@ -42,6 +44,7 @@ class NameNormalizer:
             'Sporting de Gijón': 'Sp Gijon',
             'Sporting Gijon': 'Sp Gijon',
             'Sporting Gijón': 'Sp Gijon',
+            'Gijon': 'Sp Gijon', # Scraper
             'Racing de Santander': 'Santander',
             'Racing Santander': 'Santander',
             'SD Eibar': 'Eibar',
@@ -70,7 +73,12 @@ class NameNormalizer:
             'CD Leganes': 'Leganes',
             'Leganés': 'Leganes',
             'Deportivo': 'Dep. La Coruna',
+            'Coruna': 'Dep. La Coruna', # Scraper
+            'La Coruna': 'Dep. La Coruna',
             'Getafe CF': 'Getafe',
+            'RCD Espanyol de Barcelona': 'Espanyol',
+            'RCD Espanyol': 'Espanyol',
+            'Espanol': 'Espanyol',
 
             # --- ENGLAND (E0, E1) ---
             'Spurs': 'Tottenham',

@@ -5,16 +5,16 @@ def cond_home_dominant(row):
     Local marca medias > 1.3 y tiene momentum (No pierde mucho).
     Factor Rival: Visitante ha encajado en 60% de sus salidas (CleanSheetRate <= 0.40).
     """
-    home_strong = (row.get('HomeAvgGoalsFor', 0) > 1.3 and 
-                   row.get('HomePPG', 0) > 1.4 and
-                   row.get('HomeWinsLast5', 0) >= 2) # Relaxed
+    home_strong = (row.get('HomeAvgGoalsFor', 0) > 1.25 and 
+                   row.get('HomePPG', 0) > 1.35 and
+                   row.get('HomeWinsLast5', 0) >= 1) # Relaxed to 1 win in 5
                    
     # Factor Rival
-    visitor_weak_defense = (row.get('AwayCleanSheet_Rate', 1.0) <= 0.40) # Relaxed from 0.35/0.2
+    visitor_weak_defense = (row.get('AwayCleanSheet_Rate', 1.0) <= 0.50) # Relaxed to 50%
     
     # 4.0 Check: Regression Risk
-    # If Home Z-Score is excessively high (> 2.8), they are overperforming.
-    regression_risk = row.get('HomeZScore_Goals', 0) > 3.0 # Relaxed from 2.8
+    # Relaxed Threshold
+    regression_risk = row.get('HomeZScore_Goals', 0) > 3.5
     
     return home_strong and visitor_weak_defense and not regression_risk
 

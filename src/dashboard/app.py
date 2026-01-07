@@ -146,8 +146,8 @@ if st.sidebar.button("Recargar Datos"):
 
 
 
-# Call with version 3 to match definition and bust cache
-data = load_data(leagues, seasons, version=3)
+# Call with version 4 (Bumped to force normalization refresh)
+data = load_data(leagues, seasons, version=4)
 # Initialize Predictor Globally for Match View using Cache
 predictor = get_predictor(data)
 
@@ -399,10 +399,10 @@ with tab1:
                                 # Look for specific B365_Over1.5 or B365>1.5
                                 odd_val = row.get('B365_Over1.5') or row.get('B365>1.5')
                                 if pd.notna(odd_val): specific_odd = f"{odd_val}"
-                                else:
-                                    # Fallback to Over 2.5 reference if 1.5 not found (rare if fetched)
-                                    ref = row.get('B365_Over2.5') or row.get('B365>2.5')
-                                    if pd.notna(ref): specific_odd = f"(Ref O2.5: {ref})"
+                                if pd.notna(odd_val): specific_odd = f"{odd_val}"
+                                # REMOVED: Confusing Ref O2.5 fallback
+                                # else:
+                                #    pass
 
                             elif "Choque" in name:
                                 prob = 80
@@ -594,76 +594,84 @@ with tab1:
                                     best_pattern = patterns[0]
                                     
                                     with st.container(border=True):
-                                        c1, c2 = st.columns([1, 1]); c3 = None
+                                        # COMPACT LAYOUT: Header + Body
                                         
-                                        with c1:
-                                            match_label = f"{row['HomeTeam']} vs {row['AwayTeam']}"
-                                            st.subheader(match_label)
-                                            st.caption(f"📅 {row['Date']} | ⏰ {row['Time']}")
-                                            
-                                            # 1X2 Odds
+                                        # 1. Header Line: Match vs | 1X2 | Time
+                                        c_head_1, c_head_2 = st.columns([3, 1])
+                                        with c_head_1:
+                                             st.subheader(f"{row['HomeTeam']} vs {row['AwayTeam']}")
+                                        with c_head_2:
+                                             # Compact time
+                                             st.caption(f"{row['Time']} | {row['Date'][5:]}")
+
+                                        # 2. Main Body: Grid Layout
+                                        # Left: Stats & Prob | Right: Strategies
+                                        c_main_L, c_main_R = st.columns([1, 1])
+                                        
+                                        with c_main_L:
+                                            # Combined 1X2 and Probs to save vertical space
                                             odds_h = row.get('B365H') or row.get('AvgH')
                                             odds_d = row.get('B365D') or row.get('AvgD')
                                             odds_a = row.get('B365A') or row.get('AvgA')
                                             
-                                            if pd.notna(odds_h):
-                                                st.markdown(f"**1:** `{odds_h}` | **X:** `{odds_d}` | **2:** `{odds_a}`")
-                                            else:
-                                                st.caption("Cuotas 1X2 no disp.")
-                                                
-                                            # Win Probabilities
+                                            line_1x2 = f"**1:** `{odds_h}` | **X:** `{odds_d}` | **2:** `{odds_a}`" if pd.notna(odds_h) else "Cuotas 1X2 N/A"
+                                            st.markdown(line_1x2)
+
                                             p_home = int(row.get('ML_HomeWin', 0) * 100)
                                             p_draw = int(row.get('ML_Draw', 0) * 100)
                                             p_away = int(row.get('ML_AwayWin', 0) * 100)
                                             
-                                            if p_home + p_draw + p_away > 0:
-                                                st.caption(f"**Prob. IA:** 🏠 `{p_home}%` | 🤝 `{p_draw}%` | ✈️ `{p_away}%`")
+                                            # Visual Bar for Probs? Or just compact text
+                                            line_ai = f"**Prob. IA:** {p_home}% / {p_draw}% / {p_away}%"
+                                            st.caption(line_ai)
                                             
-                                            # AI Score (Moved here)
-                                            pred_h_goals = int(row.get('REG_HomeGoals', 0))
-                                            pred_a_goals = int(row.get('REG_AwayGoals', 0))
-                                            st.markdown(f"**Predicción IA:** `{pred_h_goals} - {pred_a_goals}`")
+                                            # Score Prediction
+                                            pred_h = int(row.get('REG_HomeGoals', 0))
+                                            pred_a = int(row.get('REG_AwayGoals', 0))
+                                            st.markdown(f"**Predicción:** `{pred_h} - {pred_a}`")
 
-                                        with c2:
-                                            # AI PATTERNS (Suggested Bets)
+                                        with c_main_R:
+                                            st.caption("Estrategias Activadas:")
                                             for p in patterns:
                                                 color = "green" if p['prob'] > 75 else "orange"
-                                                odd_display = f" - 💰 {p['odd']}" if p.get('odd') and p['odd'] != 'N/A' else ""
-                                                st.markdown(f":{color}[**{p['suggestion']}**] ({p['prob']}%){odd_display}")
+                                                odd_str = f" - 💰`{p['odd']}`" if p.get('odd') and p['odd'] != 'N/A' else ""
+                                                # Use HTML for tighter spacing if needed, but markdown is okay
+                                                st.markdown(f":{color}[**{p['suggestion']}**] ({p['prob']}%){odd_str}")
                                             
-                                            st.divider()
+                                        st.divider()
                                             
                                             # COMPACT METRICS (Small Font)
-                                            stats = row.get('stats', {})
-                                            bp_name = best_pattern['suggestion']
+                                        # COMPACT METRICS (Small Font)
+                                        stats = row.get('stats', {})
+                                        bp_name = best_pattern['suggestion']
+                                        
+                                        metric_text = "Datos insuficientes"
+                                        if "Local" in bp_name or "Victoria" in bp_name or "Choque" in bp_name or "Visitante" in bp_name:
+                                            form_h = trends_analyzer_forms.get_recent_form(row['HomeTeam'])
+                                            form_a = trends_analyzer_forms.get_recent_form(row['AwayTeam'])
+                                            metric_text = f"Forma: 🏠 {form_h} | ✈️ {form_a}"
                                             
-                                            metric_text = "Datos insuficientes"
-                                            if "Local" in bp_name or "Victoria" in bp_name or "Choque" in bp_name or "Visitante" in bp_name:
-                                                form_h = trends_analyzer_forms.get_recent_form(row['HomeTeam'])
-                                                form_a = trends_analyzer_forms.get_recent_form(row['AwayTeam'])
-                                                metric_text = f"Forma: 🏠 {form_h} | ✈️ {form_a}"
-                                                
-                                            elif "Córner" in bp_name:
-                                                h_for = stats.get('HomeAvgCornersFor', 0)
-                                                h_ag = stats.get('HomeAvgCornersAgainst', 0)
-                                                a_for = stats.get('AwayAvgCornersFor', 0)
-                                                a_ag = stats.get('AwayAvgCornersAgainst', 0)
-                                                metric_text = f"Córners: 🏠 {h_for:.1f}/{h_ag:.1f} | ✈️ {a_for:.1f}/{a_ag:.1f}"
+                                        elif "Córner" in bp_name:
+                                            h_for = stats.get('HomeAvgCornersFor', 0)
+                                            h_ag = stats.get('HomeAvgCornersAgainst', 0)
+                                            a_for = stats.get('AwayAvgCornersFor', 0)
+                                            a_ag = stats.get('AwayAvgCornersAgainst', 0)
+                                            metric_text = f"Córners: 🏠 {h_for:.1f}/{h_ag:.1f} | ✈️ {a_for:.1f}/{a_ag:.1f}"
 
-                                            else: # Goles fallback
-                                                h_gf = stats.get('HomeAvgGoalsFor', 0)
-                                                h_ga = stats.get('HomeAvgGoalsAgainst', 0)
-                                                a_gf = stats.get('AwayAvgGoalsFor', 0)
-                                                a_ga = stats.get('AwayAvgGoalsAgainst', 0)
-                                                metric_text = f"Goles: 🏠 {h_gf:.1f}/{h_ga:.1f} | ✈️ {a_gf:.1f}/{a_ga:.1f}"
+                                        else: # Goles fallback
+                                            h_gf = stats.get('HomeAvgGoalsFor', 0)
+                                            h_ga = stats.get('HomeAvgGoalsAgainst', 0)
+                                            a_gf = stats.get('AwayAvgGoalsFor', 0)
+                                            a_ga = stats.get('AwayAvgGoalsAgainst', 0)
+                                            metric_text = f"Goles: 🏠 {h_gf:.1f}/{h_ga:.1f} | ✈️ {a_gf:.1f}/{a_ga:.1f}"
                                             
-                                            # Display Metric in Small Font
-                                            st.markdown(f"<span style='font-size:0.8em; color:gray'>{metric_text}</span>", unsafe_allow_html=True)
-                                            
-                                            # BUTTON
-                                            m_data = row.to_dict()
-                                            b_key = f"btn_match_{row['HomeTeam']}_{row['AwayTeam']}_group"
-                                            st.button("Ver Partido ➡️", key=b_key, on_click=go_to_match, args=(m_data,))
+                                        # Display Metric in Small Font
+                                        st.markdown(f"<span style='font-size:0.8em; color:gray'>{metric_text}</span>", unsafe_allow_html=True)
+                                        
+                                        # BUTTON
+                                        m_data = row.to_dict()
+                                        b_key = f"btn_match_{row['HomeTeam']}_{row['AwayTeam']}_group"
+                                        st.button("Ver Partido ➡️", key=b_key, on_click=go_to_match, args=(m_data,))
                                             
                                         if False: # with c3:
                                             # AI PREDICTION (ML Engine)
@@ -1466,15 +1474,26 @@ with tab7:
                     if 'predictor' not in locals():
                          predictor = get_predictor(data) # Assumes 'data' is global from top of script
 
+                    debug_mismatches = []
+                    # Cache history teams for fast lookup
+                    history_teams = set(predictor.history['HomeTeam'].unique()) | set(predictor.history['AwayTeam'].unique())
+
                     for idx, match_row in matches_pool.iterrows():
                         # We need full stats context (prediction row) for strategies to work
                         # The strategies expect 'HomeAvgGoalsFor' etc. 
                         # We use predictor to enrich the row
                         try:
-                            # This is expensive inside a loop if N is large!
                             # Optimization: Predictor uses memory lookup, fast enough for <100 matches.
-                            # We pass Referee now (if available in upcoming feed)
                             ref_name = match_row.get('Referee', None)
+                            
+                            # DEBUG: Verify teams exist in history
+                            h_norm = predictor.normalize_name(match_row['HomeTeam'])
+                            a_norm = predictor.normalize_name(match_row['AwayTeam'])
+                            
+                            is_known = (h_norm in history_teams) and (a_norm in history_teams)
+                            if not is_known:
+                                debug_mismatches.append(f"{match_row['HomeTeam']} ({h_norm}) vs {match_row['AwayTeam']} ({a_norm})")
+                            
                             analysis_row = predictor.predict_match(match_row['HomeTeam'], match_row['AwayTeam'], referee=ref_name)
                             
                             # Check each pattern
@@ -1491,7 +1510,9 @@ with tab7:
                                         'Stats': analysis_row # Keep context for display
                                     })
                         except Exception as e:
-                            pass # Skip match if data missing
+                            # print(f"Error {e}")
+                            pass
+
                             
                     # 5. Render Results (Cards)
                     st.markdown("---")
@@ -1529,6 +1550,11 @@ with tab7:
                                             
                     if not found_any:
                         st.warning("No se encontraron coincidencias para ninguna estrategia en este rango de fechas.")
+                    
+                    if debug_mismatches:
+                        with st.expander(f"⚠️ Debug: {len(debug_mismatches)} Partidos con Datos Faltantes (Nombres)", expanded=False):
+                            st.write("Estos equipos no se encontraron en la base de datos histórica con su nombre actual.")
+                            st.dataframe(pd.DataFrame(debug_mismatches, columns=["Partido (Nombre -> Normalizado)"]), hide_index=True)
                         
                 else:
                     st.warning("No hay partidos en el rango de fechas seleccionado.")

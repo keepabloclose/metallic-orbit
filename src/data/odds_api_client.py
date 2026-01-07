@@ -243,10 +243,8 @@ class OddsApiClient:
                     odds_data = cached_batch
                 else:
                     # Use '/odds/multi' for batch support per documentation
-                    # And STRICTLY filter for Bet365 to save bandwidth/quota
-                    # Added markets: h2h (1x2), totals, alternate_totals, btts
-                    # ADDED: team_totals, alternate_team_totals (Speculative attempt)
-                    url = f"{self.BASE_URL}/odds/multi?apiKey={self.API_KEY}&eventIds={batch_str}&bookmakers=Bet365&markets=h2h,totals,alternate_totals,btts,team_totals,alternate_team_totals" 
+                    # REMOVED strict market filter to get EVERYTHING available (including BTTS if it exists)
+                    url = f"{self.BASE_URL}/odds/multi?apiKey={self.API_KEY}&eventIds={batch_str}&bookmakers=Bet365" 
                     res = requests.get(url)
                     
                     if res.status_code == 200:
@@ -326,11 +324,29 @@ class OddsApiClient:
                 raw_key = m.get('key', '').lower()
                 m_name = m.get('name', '').lower()
                 
+                # DEBUG: Trace all markets
+                # print(f"MARKET_SCAN: {m_name}") # Comment out to reduce noise if needed
+                
+                # if 'both teams' in m_name:
+                #      print(f"*** BTTS MARKET: '{m_name}' ***")
+                #      for o in m.get('outcomes', []):
+                #          print(f"   Outcome: '{o.get('name')}' | Price: {o.get('price')}")
+                
                 # Normalize keys
                 m_key = raw_key
-                if 'goals over/under' in raw_key or 'goals over/under' in m_name: m_key = 'totals'
-                elif 'match winner' in raw_key or '1x2' in raw_key: m_key = 'h2h'
-                elif 'btts' in raw_key or 'both teams to score' in raw_key: m_key = 'btts'
+                # RELAXED PARSING (V3/Proxy compatibility)
+                name_l = m_name
+                
+                if 'goals over/under' in raw_key or 'goals over/under' in name_l: m_key = 'totals'
+                elif 'match winner' in raw_key or '1x2' in raw_key or 'match winner' in name_l: m_key = 'h2h'
+                if 'both teams' in name_l and 'half' in name_l:
+                    pass # Ignore half-time BTTS
+                elif 'btts' in raw_key or 'both teams to score' in name_l or 'both teams' in name_l: 
+                    m_key = 'btts'
+                
+                # Catch-all for totals (e.g. "Alternative Match Goals", "Match Goals")
+                elif 'total' in name_l and ('goal' in name_l or 'match' in name_l): m_key = 'totals'
+                elif 'alternative' in name_l and 'goal' in name_l: m_key = 'totals'
                 
                 # 1. Match Result (1x2)
                 if m_key == 'h2h':
