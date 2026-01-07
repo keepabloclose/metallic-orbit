@@ -46,7 +46,8 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
     pred_row = predictor.predict_match_safe(
         match['HomeTeam'], 
         match['AwayTeam'], 
-        match_date=match.get('Date')
+        match_date=match.get('Date'),
+        known_odds={k: v for k, v in match.items() if str(k).startswith('B365')}
     )
     
     # 2. MATCH LOGIC / HELPERS

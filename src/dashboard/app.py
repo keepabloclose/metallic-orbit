@@ -51,10 +51,13 @@ def check_password():
 
     # Show Login Form
     st.title("🔒 Acceso Restringido")
-    st.text_input("Usuario", key="username")
-    st.text_input("Contraseña", type="password", key="password")
     
-    if st.button("Entrar"):
+    with st.form("login_form"):
+        st.text_input("Usuario", key="username")
+        st.text_input("Contraseña", type="password", key="password")
+        submit_button = st.form_submit_button("Entrar")
+        
+    if submit_button:
         password_entered()
         if st.session_state.get("authenticated"):
             st.rerun()
@@ -71,7 +74,7 @@ def go_to_match(match_data):
     st.session_state['selected_match'] = match_data
 
 @st.cache_data(ttl=300) # Reduced to 5 mins
-def fetch_upcoming_cached(leagues, _last_updated):
+def fetch_upcoming_cached(leagues, _last_updated, cache_bust_v=1):
     # _last_updated is a dummy arg to force cache invalidation when DB changes
     fetcher = FixturesFetcher()
     return fetcher.fetch_upcoming(leagues)
@@ -122,24 +125,23 @@ st.sidebar.header("Configuración")
 # Added N1 (Netherlands), B1 (Belgium), E1 (Championship) to cover expanded fixtures
 league_options = ['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1']
 league_names = {
-    'SP1': 'La Liga (España)',
-    'E0': 'Premier League (Inglaterra)',
-    'E1': 'Championship (Inglaterra)',
-    'D1': 'Bundesliga (Alemania)',
-    'I1': 'Serie A (Italia)',
-    'F1': 'Ligue 1 (Francia)',
-    'P1': 'Liga Portugal',
-    'N1': 'Eredivisie',
-    'SP2': 'La Liga 2 (España)'
+    'SP1': 'La Liga (España)', 'E0': 'Premier League', 'E1': 'Championship',
+    'D1': 'Bundesliga', 'I1': 'Serie A', 'F1': 'Ligue 1',
+    'P1': 'Liga Portugal', 'N1': 'Eredivisie', 'SP2': 'La Liga 2'
 }
-leagues = st.sidebar.multiselect(
-    "Ligas", 
-    league_options, 
-    default=['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1'], 
-    format_func=lambda x: league_names.get(x, x)
-)
-# User Request: Default last 5 seasons
-seasons = st.sidebar.multiselect("Temporadas", ['2526', '2425', '2324', '2223', '2122', '2021'], default=['2526', '2425', '2324', '2223', '2122'])
+
+# Compact Horizontal Layout for Config
+c_conf1, c_conf2 = st.sidebar.columns(2)
+with c_conf1:
+    leagues = st.multiselect(
+        "Ligas", 
+        league_options, 
+        default=['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1'], 
+        format_func=lambda x: league_names.get(x, x)
+    )
+with c_conf2:
+    # User Request: Default last 5 seasons -> Reduced to 2 for performance
+    seasons = st.multiselect("Temporadas", ['2526', '2425', '2324', '2223', '2122', '2021'], default=['2526', '2425'])
 
 if st.sidebar.button("Recargar Datos"):
     st.cache_data.clear()
@@ -161,64 +163,86 @@ st.sidebar.info(f"Cargados {len(data)} partidos.")
 
 st.markdown("""
 <style>
-    /* Global Typography & Spacing */
-    div[data-testid="stMetricValue"] {
-        font-size: 1.8rem !important;
+    /* --- LAYOUT OPTIMIZATION --- */
+    /* Reduce top padding and center content */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 95% !important;
     }
     
-    /* Responsive Cards */
-    .mini-card {
-        border-radius: 12px;
-        padding: 12px 8px;
-        text-align: center;
-        color: #1e1e1e;
-        margin-bottom: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-        transition: transform 0.2s ease;
-    }
-    .mini-card:hover {
-        transform: translateY(-2px);
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* --- CARD STYLING (Containers) --- */
+    /* Target Streamlit's native bordered containers */
+    [data-testid="stVerticalBlockBorderWrapper"] > div {
+        border-radius: 10px !important;
+        border: 1px solid rgba(0,0,0,0.05) !important;
+        background-color: #FAFAFA !important; /* Subtle contrast */
+        box-shadow: none !important;
+        padding: 1rem !important;
     }
     
-    .mini-card-header {
-        font-weight: 600;
-        font-size: 0.9em;
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        opacity: 0.9;
-    }
-    .mini-card-val {
-        font-weight: 900;
-        font-size: 1.4em;
-        margin: 4px 0;
-    }
-    .mini-card-sub {
-        font-size: 0.8em;
-        color: #555;
+    /* Dark Mode Support for Containers */
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stVerticalBlockBorderWrapper"] > div {
+            background-color: #1E1E1E !important;
+            border: 1px solid rgba(255,255,255,0.05) !important;
+        }
     }
 
-    /* Mobile Optimizations */
-    @media (max-width: 768px) {
-        /* Adjust metric Size */
-        div[data-testid="stMetricValue"] {
-            font-size: 1.4rem !important;
-        }
-        
-        /* Compact margins for mobile */
-        .block-container {
-            padding-top: 2rem !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-        }
-        
-        /* Make cards span full width on very small screens if needed, 
-           though Streamlit columns usually handle this. 
-           We can enforce font scaling. */
-        .mini-card-val {
-            font-size: 1.2em;
-        }
+    /* --- BUTTONS (Flat Design) --- */
+    .stButton button {
+        box-shadow: none !important;
+        border: 1px solid transparent !important;
+        border-radius: 6px !important;
+        background-color: #f0f2f6; /* Default gray */
+        color: #31333F;
+        font-weight: 500;
+        transition: all 0.2s ease;
     }
+    .stButton button:hover {
+        border-color: #ccc !important;
+        background-color: #e0e2e6 !important;
+        color: #000;
+    }
+    /* Primary Action Button Accent */
+    .stButton button:active, .stButton button:focus {
+        background-color: #FF4B4B !important;
+        color: white !important;
+    }
+
+    /* --- TYPOGRAPHY & METRICS --- */
+    h1, h2, h3 {
+        letter-spacing: -0.02em;
+        font-weight: 700 !important;
+    }
+    
+    /* Compact Metric */
+    [data-testid="stMetric"] {
+        background-color: transparent !important;
+        padding: 0 !important;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.4rem !important;
+        font-weight: 700;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.8rem !important;
+        color: #666;
+    }
+
+    /* --- INPUTS --- */
+    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
+        border-radius: 8px !important;
+        border: 1px solid rgba(0,0,0,0.1) !important;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -371,7 +395,7 @@ with tab1:
         except:
              db_ts = 0
              
-        upcoming = fetch_upcoming_cached(selected_leagues_tab1, db_ts)
+        upcoming = fetch_upcoming_cached(selected_leagues_tab1, db_ts, cache_bust_v=14)
         
         # --- DATE FILTERING ---
         if not upcoming.empty and len(date_range) == 2:
@@ -397,6 +421,8 @@ with tab1:
 
         if not upcoming.empty:
                 st.success(f"Encontrados {len(upcoming)} partidos en el rango seleccionado.")
+                
+                # ----------------------------------
                 
                 predictor = get_predictor(data)
                 predictions = []
@@ -549,12 +575,16 @@ with tab1:
                 # Process all matches first
                 all_preds = []
                 for idx, match in upcoming.iterrows():
+                    # Extract known odds from upcoming match data to prevent synthetic overwrite
+                    current_odds = {k: v for k, v in match.items() if str(k).startswith('B365')}
+                    
                     # Enhanced Prediction (Pass full context to avoid 0-0/Mismatch)
                     row = predictor.predict_match_safe(
                         match['HomeTeam'], 
                         match['AwayTeam'], 
                         match_date=match.get('Date'),
-                        referee=match.get('Referee')
+                        referee=match.get('Referee'),
+                        known_odds=current_odds # PASS KNOWN ODDS!
                     )
                     
                     # Prepare display data even if prediction fails
@@ -570,8 +600,11 @@ with tab1:
                     if row:
                         # CRITICAL FIX: Merge 'match' data (which has the Odds) into 'row' (Prediction)
                         # Predictor returns stats/probs, but 'match' has the B365 columns from upcoming.py
+                        # FORCE OVERWRITE for B365 columns to ensure we display Real Odds, not Synthetic
                         for k, v in match.to_dict().items():
-                            if k not in row:
+                            if k.startswith('B365') and pd.notna(v):
+                                row[k] = v
+                            elif k not in row:
                                 row[k] = v
                                 
                         patterns = evaluate_match_potential(row)

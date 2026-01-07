@@ -328,7 +328,7 @@ class OddsApiClient:
                 m_name = m.get('name', '').lower()
                 
                 # DEBUG: Trace all markets
-                print(f"MARKET_SCAN: key='{raw_key}' name='{m_name}'") # Comment out to reduce noise if needed
+                # print(f"MARKET_SCAN: key='{raw_key}' name='{m_name}'") # Comment out to reduce noise if needed
                 
                 # if 'both teams' in m_name:
                 #      print(f"*** BTTS MARKET: '{m_name}' ***")

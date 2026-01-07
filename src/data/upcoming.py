@@ -2,10 +2,6 @@ import pandas as pd
 import requests
 import io
 import datetime
-import pandas as pd
-import requests
-import io
-import datetime
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -49,7 +45,11 @@ class FixturesFetcher:
                     df = df.rename(columns={'Home Team': 'HomeTeam', 'Away Team': 'AwayTeam'})
                     
                     # Normalize Team Names to match Historical Data
-                    from src.utils.normalization import NameNormalizer
+                    import importlib
+                    import src.utils.normalization as norm_module
+                    importlib.reload(norm_module) # FORCE RELOAD to pick up 'Brighton' fix
+                    NameNormalizer = norm_module.NameNormalizer
+                    
                     df['HomeTeam'] = df['HomeTeam'].apply(NameNormalizer.normalize)
                     df['AwayTeam'] = df['AwayTeam'].apply(NameNormalizer.normalize)
                     df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
@@ -109,8 +109,9 @@ class FixturesFetcher:
             
         final_df = pd.concat(upcoming_matches, ignore_index=True)
         
-        if 'B365H' not in final_df.columns or final_df['B365H'].isna().mean() > 0.5:
-            print("Odds missing or incomplete. Enriching via Odds-API.io...")
+        if True: # FORCE ENRICHMENT ALWAYS to ensure fresh API odds override CSV stales
+            # was: if 'B365H' not in final_df.columns or final_df['B365H'].isna().mean() > 0.5:
+            print("Enriching via Odds-API.io (Forced Freshness)...")
             try:
                 from src.data.odds_api_client import OddsApiClient
                 client = OddsApiClient()
@@ -136,9 +137,18 @@ class FixturesFetcher:
                     enrichment_df['MergeKey'] = enrichment_df['HomeTeam'] + "_" + enrichment_df['AwayTeam']
                     final_df['MergeKey'] = final_df['HomeTeam'] + "_" + final_df['AwayTeam']
                     
+                    enrichment_df['MergeKey'] = enrichment_df['HomeTeam'] + "_" + enrichment_df['AwayTeam']
+                    final_df['MergeKey'] = final_df['HomeTeam'] + "_" + final_df['AwayTeam']
+                    
                     # Identify all valid Odds columns from API response
                     odds_cols = [c for c in enrichment_df.columns if c.startswith('B365') and c not in ['MergeKey']]
                     
+                    # STRATEGY CHANGE: Wipe existing odds in final_df to prevent stale collisions
+                    # The user wants ONLY API odds.
+                    for oc in odds_cols:
+                        if oc in final_df.columns:
+                             final_df[oc] = None # Wipe it out to force API value or NaN
+
                     # Merge
                     # We left merge to keep fixtures, but bring in odds
                     merged = final_df.merge(enrichment_df[['MergeKey'] + odds_cols], on='MergeKey', how='left', suffixes=('', '_api'))
@@ -151,7 +161,9 @@ class FixturesFetcher:
                             if col not in merged.columns:
                                 merged[col] = merged[api_col]
                             else:
-                                merged[col] = merged[col].fillna(merged[api_col])
+                                # PRIORITIZE API ODDS (Live) over CSV (Static)
+                                # If API has a value, use it. Else fallback to CSV.
+                                merged[col] = merged[api_col].fillna(merged.get(col))
                             
                     final_df = merged.drop(columns=[c for c in merged.columns if c.endswith('_api')])
                         
@@ -159,6 +171,7 @@ class FixturesFetcher:
 
             except Exception as e:
                 print(f"API Enrichment Failed: {e}")
+                # Optional: st.warning(f"Live odds update failed: {e}")
                 
         # Fallback to Scraper if still bad?
         # (Optional: Only if API failed completely)
