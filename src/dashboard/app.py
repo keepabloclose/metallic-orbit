@@ -70,8 +70,9 @@ def go_to_match(match_data):
     st.session_state['view'] = 'match_details'
     st.session_state['selected_match'] = match_data
 
-@st.cache_data(ttl=500) # Cache for 8 mins (Debug Refresh)
-def fetch_upcoming_cached(leagues):
+@st.cache_data(ttl=300) # Reduced to 5 mins
+def fetch_upcoming_cached(leagues, _last_updated):
+    # _last_updated is a dummy arg to force cache invalidation when DB changes
     fetcher = FixturesFetcher()
     return fetcher.fetch_upcoming(leagues)
 
@@ -160,30 +161,63 @@ st.sidebar.info(f"Cargados {len(data)} partidos.")
 
 st.markdown("""
 <style>
+    /* Global Typography & Spacing */
     div[data-testid="stMetricValue"] {
         font-size: 1.8rem !important;
     }
+    
+    /* Responsive Cards */
     .mini-card {
-        border-radius: 8px;
-        padding: 8px 4px;
+        border-radius: 12px;
+        padding: 12px 8px;
         text-align: center;
-        color: #1e1e1e; /* Force dark text for contrast */
-        margin-bottom: 4px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        color: #1e1e1e;
+        margin-bottom: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        transition: transform 0.2s ease;
     }
+    .mini-card:hover {
+        transform: translateY(-2px);
+    }
+    
     .mini-card-header {
-        font-weight: bold;
-        font-size: 0.85em;
-        margin-bottom: 2px;
-    }
-    .mini-card-sub {
-        font-size: 0.75em;
-        color: #444;
+        font-weight: 600;
+        font-size: 0.9em;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.9;
     }
     .mini-card-val {
         font-weight: 900;
-        font-size: 1.2em;
+        font-size: 1.4em;
         margin: 4px 0;
+    }
+    .mini-card-sub {
+        font-size: 0.8em;
+        color: #555;
+    }
+
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+        /* Adjust metric Size */
+        div[data-testid="stMetricValue"] {
+            font-size: 1.4rem !important;
+        }
+        
+        /* Compact margins for mobile */
+        .block-container {
+            padding-top: 2rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        
+        /* Make cards span full width on very small screens if needed, 
+           though Streamlit columns usually handle this. 
+           We can enforce font scaling. */
+        .mini-card-val {
+            font-size: 1.2em;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -331,8 +365,13 @@ with tab1:
         # Force reload imports (Dev mode legacy, can be removed for prod speed)
         # from src.data.upcoming import FixturesFetcher
         
-        # Use Cached Fetcher
-        upcoming = fetch_upcoming_cached(selected_leagues_tab1)
+        # Use Cached Fetcher with reactive invalidation
+        try:
+             db_ts = os.path.getmtime('data_cache/odds_database.csv')
+        except:
+             db_ts = 0
+             
+        upcoming = fetch_upcoming_cached(selected_leagues_tab1, db_ts)
         
         # --- DATE FILTERING ---
         if not upcoming.empty and len(date_range) == 2:
