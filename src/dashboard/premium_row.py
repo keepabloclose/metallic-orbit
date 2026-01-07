@@ -207,11 +207,11 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
             # Format nicely
             try:
                 disp_over = f"{float(o_over):.2f}" if o_over and str(o_over).lower() != 'nan' else "-"
-            except: disp_over = str(o_over)
+            except: disp_over = "-"
 
             try:
-                disp_btts = f"{float(o_btts):.2f}" if o_btts and str(o_btts).lower() != 'nan' else "nan"
-            except: disp_btts = "nan"
+                disp_btts = f"{float(o_btts):.2f}" if o_btts and str(o_btts).lower() != 'nan' else "-"
+            except: disp_btts = "-"
             
             # Always show Over/BTTS row (with placeholders if missing)
             st.markdown(f"""
