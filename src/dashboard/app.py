@@ -602,7 +602,9 @@ with tab1:
                                              st.subheader(f"{row['HomeTeam']} vs {row['AwayTeam']}")
                                         with c_head_2:
                                              # Compact time
-                                             st.caption(f"{row['Time']} | {row['Date'][5:]}")
+                                             date_obj = row['Date']
+                                             date_str = date_obj.strftime('%d/%m') if hasattr(date_obj, 'strftime') else str(date_obj)[5:10]
+                                             st.caption(f"{row['Time']} | {date_str}")
 
                                         # 2. Main Body: Grid Layout
                                         # Left: Stats & Prob | Right: Strategies
@@ -617,9 +619,10 @@ with tab1:
                                             line_1x2 = f"**1:** `{odds_h}` | **X:** `{odds_d}` | **2:** `{odds_a}`" if pd.notna(odds_h) else "Cuotas 1X2 N/A"
                                             st.markdown(line_1x2)
 
-                                            p_home = int(row.get('ML_HomeWin', 0) * 100)
-                                            p_draw = int(row.get('ML_Draw', 0) * 100)
-                                            p_away = int(row.get('ML_AwayWin', 0) * 100)
+                                            def to_pct(val): return int(val) if val > 1 else int(val * 100)
+                                            p_home = to_pct(row.get('ML_HomeWin', 0))
+                                            p_draw = to_pct(row.get('ML_Draw', 0))
+                                            p_away = to_pct(row.get('ML_AwayWin', 0))
                                             
                                             # Visual Bar for Probs? Or just compact text
                                             line_ai = f"**Prob. IA:** {p_home}% / {p_draw}% / {p_away}%"

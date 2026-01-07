@@ -297,6 +297,9 @@ class OddsApiClient:
             home_team = NameNormalizer.normalize(raw_home)
             away_team = NameNormalizer.normalize(raw_away)
             
+            # DEBUG
+            # print(f"[TRACE PARSE] '{raw_home}' -> '{home_team}'")
+            
             bookmakers = item.get('bookmakers', {})
             if not bookmakers: return None
             
@@ -325,7 +328,7 @@ class OddsApiClient:
                 m_name = m.get('name', '').lower()
                 
                 # DEBUG: Trace all markets
-                # print(f"MARKET_SCAN: {m_name}") # Comment out to reduce noise if needed
+                print(f"MARKET_SCAN: key='{raw_key}' name='{m_name}'") # Comment out to reduce noise if needed
                 
                 # if 'both teams' in m_name:
                 #      print(f"*** BTTS MARKET: '{m_name}' ***")
@@ -339,6 +342,8 @@ class OddsApiClient:
                 
                 if 'goals over/under' in raw_key or 'goals over/under' in name_l: m_key = 'totals'
                 elif 'match winner' in raw_key or '1x2' in raw_key or 'match winner' in name_l: m_key = 'h2h'
+                elif 'ml' == raw_key or 'ml' == name_l or 'moneyline' in name_l: m_key = 'h2h' # FIX: Capture ML market
+                
                 if 'both teams' in name_l and 'half' in name_l:
                     pass # Ignore half-time BTTS
                 elif 'btts' in raw_key or 'both teams to score' in name_l or 'both teams' in name_l: 
@@ -350,13 +355,27 @@ class OddsApiClient:
                 
                 # 1. Match Result (1x2)
                 if m_key == 'h2h':
-                    odds_list = m.get('outcomes', [])
+                    odds_list = m.get('outcomes') or m.get('odds') or []
                     for o in odds_list:
+                        # Support COMPACT format (e.g. {'home': 1.2, 'draw': 3.0, 'away': 5.0})
+                        if 'home' in o and 'away' in o:
+                            b365_h = o.get('home')
+                            b365_d = o.get('draw')
+                            b365_a = o.get('away')
+                            continue
+
                         n = str(o.get('name') or o.get('label') or '').lower()
-                        p = o.get('price') or o.get('odds') # V3 uses 'odds'?
-                        if n == home_team.lower() or n == 'home' or n == '1': b365_h = p
-                        elif n == away_team.lower() or n == 'away' or n == '2': b365_a = p
-                        elif n == 'draw' or n == 'x': b365_d = p
+                        p = o.get('price') or o.get('odds')
+                        
+                        # Match against Normalized OR Raw name to catch mismatches like "Man City" vs "Manchester City"
+                        # Also standard synonyms
+                        h_matches = {home_team.lower(), raw_home.lower(), 'home', '1'}
+                        a_matches = {away_team.lower(), raw_away.lower(), 'away', '2'}
+                        d_matches = {'draw', 'x', 'the draw'}
+                        
+                        if n in h_matches: b365_h = p
+                        elif n in a_matches: b365_a = p
+                        elif n in d_matches: b365_d = p
 
                 # 2. Totals & Alternate Totals (Merged Logic)
                 elif m_key == 'totals' or m_key == 'alternate_totals':
