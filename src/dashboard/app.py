@@ -523,27 +523,25 @@ with tab1:
                     upcoming = upcoming.reset_index(drop=True) # Reset Index logic
                     
                     # Robust Date Parsing using Timestamps
-                    # 1. Ensure 'Date' is datetime64
-                    upcoming['Date'] = pd.to_datetime(upcoming['Date'], dayfirst=True, errors='coerce')
+                    # 1. Ensure 'Date' is datetime64 (No dayfirst=True for ISO)
+                    upcoming['Date'] = pd.to_datetime(upcoming['Date'], errors='coerce')
                     
-                    # 2. Normalize to midnight (remove time) AND STRIP TIMEZONE
-                    upcoming['DateNorm'] = upcoming['Date'].dt.normalize().dt.tz_localize(None)
+                    # 2. Extract Date String for Filtering (YYYY-MM-DD) - Most Robust
+                    upcoming['DateFilter'] = upcoming['Date'].dt.strftime('%Y-%m-%d')
                     
-                    # 3. Convert filter bounds to Normalized Timestamps (Naive)
-                    ts_start = pd.Timestamp(start_date).normalize().tz_localize(None)
-                    ts_end = pd.Timestamp(end_date).normalize().tz_localize(None)
-                    
-
+                    # 3. Convert filter bounds to Strings
+                    start_str = start_date.strftime('%Y-%m-%d')
+                    end_str = end_date.strftime('%Y-%m-%d')
                     
                     # 4. Filter
-                    if ts_start == ts_end:
+                    if start_str == end_str:
                         # Exact Day Match
-                        upcoming = upcoming[upcoming['DateNorm'] == ts_start]
+                        upcoming = upcoming[upcoming['DateFilter'] == start_str]
                     else:
                         # Range Match
                         upcoming = upcoming[
-                            (upcoming['DateNorm'] >= ts_start) & 
-                            (upcoming['DateNorm'] <= ts_end)
+                            (upcoming['DateFilter'] >= start_str) & 
+                            (upcoming['DateFilter'] <= end_str)
                         ]
                     
                 except Exception as e:
