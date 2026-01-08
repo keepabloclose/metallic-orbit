@@ -1557,33 +1557,70 @@ with tab7:
     # 3. Fetch Data (Broad Search)
     if st.button("🔄 Escanear Estrategias", type="primary", use_container_width=True):
         with st.spinner("Escaneando calendario y aplicando patrones..."):
-            # Fetch ALL leagues or User selection? Default to All for strategies to be useful
-            # We reuse the cached fetcher
-            now_str_hour = datetime.datetime.now().strftime('%Y-%m-%d-%H')
-            upcoming_strat = fetch_upcoming_cached(sidebar_leagues if 'sidebar_leagues' in locals() else leagues, now_str_hour)
+            # Load Backend Data First (User Request for periodic updates)
+            import json
+            import os # Added import for os
+            backend_data = None
+            CACHE_FILE = "data_cache/dashboard_data.json"
             
-            if not upcoming_strat.empty:
-                # Filter by Date Range
+            if os.path.exists(CACHE_FILE):
                 try:
-                    upcoming_strat['DateObj'] = pd.to_datetime(upcoming_strat['Date'], dayfirst=True).dt.date
-                    mask = (upcoming_strat['DateObj'] >= start_date) & (upcoming_strat['DateObj'] <= end_date)
-                    matches_pool = upcoming_strat[mask]
-                except Exception as e:
-                    st.error(f"Error filtrando fechas: {e}")
-                    matches_pool = pd.DataFrame()
+                    with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                        backend_data = json.load(f)
+                except: pass
+            
+            used_backend = False
+            matches_pool = pd.DataFrame() # Initialize
+
+            if backend_data:
+                last_u = backend_data['metadata']['last_updated']
+                st.info(f"⚡ Usando datos pre-calculados del Backend (Actualizado: {last_u})")
                 
-                if not matches_pool.empty:
-                    st.success(f"Analizando {len(matches_pool)} partidos programados...")
-                    
-                    # 4. Pattern Matching Engine
-                    from src.engine.strategies import PREMATCH_PATTERNS
-                    
-                    # Dictionary to store matches per pattern
-                    strategy_results = {name: [] for name, _, _, _ in PREMATCH_PATTERNS}
-                    pattern_docs = {name: func.__doc__ for name, func, _, _ in PREMATCH_PATTERNS}
-                    
-                    # Predictor needed for Avg Stats lookups
-                    # We might need to initialize it differently or assume 'data' is loaded globally
+                # Convert to DataFrame for filtering
+                raw_matches = backend_data['matches']
+                if raw_matches:
+                    df_backend = pd.DataFrame(raw_matches)
+                     # Filter by Date Range
+                    try:
+                        df_backend['DateObj'] = pd.to_datetime(df_backend['Date'], dayfirst=True).dt.date
+                        mask = (df_backend['DateObj'] >= start_date) & (df_backend['DateObj'] <= end_date)
+                        matches_pool = df_backend[mask]
+                        used_backend = True
+                    except Exception as e:
+                        st.error(f"Error filtrando datos backend: {e}")
+            
+            # Fallback to Live Calculation if Backend failed or empty
+            if not used_backend:
+                st.warning("⚠️ Datos backend no disponibles. Escaneando en vivo (puede ser más lento)...")
+                # Fetch ALL leagues or User selection? Default to All for strategies to be useful
+                # We reuse the cached fetcher
+                now_str_hour = datetime.datetime.now().strftime('%Y-%m-%d-%H')
+                upcoming_strat = fetch_upcoming_cached(sidebar_leagues if 'sidebar_leagues' in locals() else leagues, now_str_hour)
+                
+                if not upcoming_strat.empty:
+                    # Filter by Date Range
+                    try:
+                        upcoming_strat['DateObj'] = pd.to_datetime(upcoming_strat['Date'], dayfirst=True).dt.date
+                        mask = (upcoming_strat['DateObj'] >= start_date) & (upcoming_strat['DateObj'] <= end_date)
+                        matches_pool = upcoming_strat[mask]
+                    except Exception as e:
+                        st.error(f"Error filtrando fechas: {e}")
+                        matches_pool = pd.DataFrame()
+                
+            
+            if not matches_pool.empty:
+                st.success(f"Analizando {len(matches_pool)} partidos programados...")
+                
+                # 4. Pattern Matching Engine
+                from src.engine.strategies import PREMATCH_PATTERNS
+                
+                # Dictionary to store matches per pattern
+                strategy_results = {name: [] for name, _, _, _ in PREMATCH_PATTERNS}
+                pattern_docs = {name: func.__doc__ for name, func, _, _ in PREMATCH_PATTERNS}
+                
+                # Predictor needed for Avg Stats lookups if NOT using backend (or specifically for normalization?)
+                # If using backend, 'Stats' are already in the row.
+                if not used_backend:
                     if 'predictor' not in locals():
                          predictor = get_predictor(data) # Assumes 'data' is global from top of script
 
@@ -1591,46 +1628,56 @@ with tab7:
                     # Cache history teams for fast lookup
                     history_teams = set(predictor.history['HomeTeam'].unique()) | set(predictor.history['AwayTeam'].unique())
 
-                    for idx, match_row in matches_pool.iterrows():
-                        # We need full stats context (prediction row) for strategies to work
-                        # The strategies expect 'HomeAvgGoalsFor' etc. 
-                        # We use predictor to enrich the row
-                        try:
-                            # Optimization: Predictor uses memory lookup, fast enough for <100 matches.
-                            ref_name = match_row.get('Referee', None)
-                            
-                            # DEBUG: Verify teams exist in history
-                            h_norm = predictor.normalize_name(match_row['HomeTeam'])
-                            a_norm = predictor.normalize_name(match_row['AwayTeam'])
-                            
-                            is_known = (h_norm in history_teams) and (a_norm in history_teams)
-                            if not is_known:
-                                debug_mismatches.append(f"{match_row['HomeTeam']} ({h_norm}) vs {match_row['AwayTeam']} ({a_norm})")
-                            
-                            analysis_row = predictor.predict_match_safe(match_row['HomeTeam'], match_row['AwayTeam'], referee=ref_name)
-                            
-                            # Check each pattern
-                            for name_pat, cond_func, _, _ in PREMATCH_PATTERNS:
-                                # Prepare row for strategy check (features map)
-                                if cond_func(analysis_row):
-                                    # Add match to list
-                                    strategy_results[name_pat].append({
-                                        'Date': match_row['Date'],
-                                        'Time': match_row.get('Time', '00:00'),
-                                        'Home': match_row['HomeTeam'],
-                                        'Away': match_row['AwayTeam'],
-                                        'Div': match_row.get('Div', ''),
-                                        'Stats': analysis_row # Keep context for display
-                                    })
-                        except Exception as e:
-                            # print(f"Error {e}")
-                            pass
+                for idx, match_row in matches_pool.iterrows():
+                    # If Backend: data is already enriched
+                    if used_backend:
+                        # Direct check of 'active_strategies' list
+                        active = match_row.get('active_strategies', [])
+                        for strat_name in active:
+                            if strat_name in strategy_results:
+                                # Prepare Result Object
+                                strategy_results[strat_name].append({
+                                    'Date': match_row['Date'],
+                                    'Time': match_row.get('Time', '00:00'),
+                                    'Home': match_row['HomeTeam'],
+                                    'Away': match_row['AwayTeam'],
+                                    'Div': match_row.get('Div', ''),
+                                    'Stats': match_row.to_dict() # Full context is the row itself
+                                })
+                        continue
 
-                            
-                    # 5. Render Results (Cards)
-                    st.markdown("---")
-                    
-                    found_any = False
+                    # ELSE: LIVE CALCULATION
+                    try:
+                        # Optimization: Predictor uses memory lookup, fast enough for <100 matches.
+                        ref_name = match_row.get('Referee', None)
+                        
+                        # DEBUG: Verify teams exist in history
+                        h_norm = predictor.normalize_name(match_row['HomeTeam'])
+                        a_norm = predictor.normalize_name(match_row['AwayTeam'])
+                        
+                        is_known = (h_norm in history_teams) and (a_norm in history_teams)
+                        if not is_known:
+                            debug_mismatches.append(f"{match_row['HomeTeam']} ({h_norm}) vs {match_row['AwayTeam']} ({a_norm})")
+                        
+                        analysis_row = predictor.predict_match_safe(match_row['HomeTeam'], match_row['AwayTeam'], referee=ref_name)
+                        
+                        # Check each pattern
+                        for name_pat, cond_func, _, _ in PREMATCH_PATTERNS:
+                            # Prepare row for strategy check (features map)
+                            if cond_func(analysis_row):
+                                # Add match to list
+                                strategy_results[name_pat].append({
+                                    'Date': match_row['Date'],
+                                    'Time': match_row.get('Time', '00:00'),
+                                    'Home': match_row['HomeTeam'],
+                                    'Away': match_row['AwayTeam'],
+                                    'Div': match_row.get('Div', ''),
+                                    'Stats': analysis_row # Keep context for display
+                                })
+                    except Exception as e:
+                        # print(f"Error {e}")
+                        pass
+
                     for pat_name, matches_found in strategy_results.items():
                         count = len(matches_found)
                         
