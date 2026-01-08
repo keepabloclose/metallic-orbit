@@ -347,31 +347,11 @@ class Predictor:
             
         # 2. Synthetic Calculation
         else:
-            if 'ML_HomeWin' in row:
-                h_prob = row['ML_HomeWin'] / 100.0
-                d_prob = row['ML_Draw'] / 100.0
-                a_prob = row['ML_AwayWin'] / 100.0
-                total_prob = h_prob + d_prob + a_prob
-                if total_prob > 0:
-                    h_prob /= total_prob
-                    d_prob /= total_prob
-                    a_prob /= total_prob
-                else:
-                    h_prob, d_prob, a_prob = 0.4, 0.3, 0.3
-            else:
-                h_p = row['HomePPG']
-                a_p = row['AwayPPG']
-                if h_p + a_p == 0:
-                    h_prob, a_prob = 0.4, 0.35
-                else:
-                    h_prob = h_p / (h_p + a_p + 0.5) 
-                    a_prob = a_p / (h_p + a_p + 0.5)
-                d_prob = 1 - h_prob - a_prob
-                if d_prob < 0.1: d_prob = 0.25
-            margin_adjustment = 0.95 
-            row['B365H'] = round(1 / (h_prob + 0.001) * margin_adjustment, 2)
-            row['B365A'] = round(1 / (a_prob + 0.001) * margin_adjustment, 2)
-            row['B365D'] = round(1 / (d_prob + 0.001) * margin_adjustment, 2)
+            # USER REQUEST: remove synthetic odds. 
+            # If no API odds, set to None.
+            row['B365H'] = None
+            row['B365A'] = None
+            row['B365D'] = None
         
         # 2. Over 2.5 Odds (Derived)
         exp_g = (row['HomeAvgGoalsFor'] + row['AwayAvgGoalsFor'] + 
