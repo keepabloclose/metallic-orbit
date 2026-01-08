@@ -485,16 +485,34 @@ with tab1:
         # Spinner only for initial fetch if needed, but keeping it smooth
         # with st.spinner("Analizando partidos del día..."): (Optional, might annoy on every interaction)
         
-        # Force reload imports (Dev mode legacy, can be removed for prod speed)
-        # from src.data.upcoming import FixturesFetcher
+        # SSG / HYBRID DATA LOADING (Backend First)
+        # ------------------------------------------------------------------
+        import json
+        import os
+        CACHE_FILE = "data_cache/dashboard_data.json"
+        backend_matches = None
+
+        if os.path.exists(CACHE_FILE):
+             try:
+                 with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                     bk_data = json.load(f)
+                     if bk_data and 'matches' in bk_data:
+                         st.toast(f"⚡ Datos cargados del Backend ({bk_data['metadata']['last_updated']})")
+                         backend_matches = pd.DataFrame(bk_data['matches'])
+             except Exception as e:
+                 # st.error(f"Error loading backend: {e}")
+                 pass
+
+        if backend_matches is not None and not backend_matches.empty:
+            upcoming = backend_matches
+        else:
+            # Fallback to Live Fetch
+            try:
+                 db_ts = os.path.getmtime('data_cache/odds_database.csv')
+            except:
+                 db_ts = 0
+            upcoming = fetch_upcoming_cached(selected_leagues_tab1, db_ts, cache_bust_v=17)
         
-        # Use Cached Fetcher with reactive invalidation
-        try:
-             db_ts = os.path.getmtime('data_cache/odds_database.csv')
-        except:
-             db_ts = 0
-             
-        upcoming = fetch_upcoming_cached(selected_leagues_tab1, db_ts, cache_bust_v=17)
         upcoming = upcoming.copy() # SAFETY COPY
         
         # --- DATE FILTERING ---
