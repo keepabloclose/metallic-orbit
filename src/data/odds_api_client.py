@@ -55,7 +55,7 @@ class OddsApiClient:
         for _ in range(len(self.API_KEYS)):
             url = url_template.format(api_key=self.current_key)
             try:
-                res = requests.get(url)
+                res = requests.get(url, verify=False)
                 if res.status_code == 200:
                     return res
                 elif res.status_code in [401, 403, 429]:
