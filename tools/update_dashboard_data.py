@@ -26,7 +26,14 @@ class DateTimeEncoder(json.JSONEncoder):
         if isinstance(obj, (np.integer, np.int64)):
             return int(obj)
         if isinstance(obj, (np.floating, np.float64)):
-            return float(obj)
+            return float(obj) if not np.isnan(obj) else None # Handle NaN here if possible, though dump check is later
+        
+        # Fallback for unknown
+        try:
+             # print(f"⚠️ Warning: serializing unknown type {type(obj)}: {str(obj)[:50]}")
+             return str(obj)
+        except:
+             return "Unserializable Object"
         return super(DateTimeEncoder, self).default(obj)
 
 def update_data():
@@ -135,13 +142,34 @@ def update_data():
     try:
         if not os.path.exists("data_cache"):
             os.makedirs("data_cache")
-            
+        
+        # Serialize to string first to catch errors before touching file
+        # ignore_nan=True isn't standard in dump, so we use allow_nan=True (default) 
+        # BUT standard JSON does not support NaN. app.py matches might need valid JSON.
+        # We manually replace NaN if needed, or rely on Python's non-standard NaN support.
+        # However, the previous corruption suggests a crash. 
+        # Let's replace NaN with None in a deep pass? Too expensive.
+        # We will try allow_nan=False to FORCE an error if NaN exists, or basic dump.
+        
+        # Better: Dump to string, replace NaN, then write.
+        json_str = json.dumps(output, cls=DateTimeEncoder, indent=2)
+        
+        # Robust NaN handling (Post-processing string is risky but effective for simple NaN)
+        # Replacing "NaN" (unquoted) with null? Python dump produces NaN (unquoted).
+        # JSON standard requires no NaN.
+        json_str = json_str.replace(": NaN", ": null").replace(": Infinity", ": null").replace(": -Infinity", ": null")
+        
+        print(f"DEBUG: JSON Size to write: {len(json_str)} bytes", flush=True)
+
         with open(CACHE_FILE, 'w', encoding='utf-8') as f:
-            json.dump(output, f, cls=DateTimeEncoder, indent=2)
+            f.write(json_str)
+            
         print("✅ Success! Data pipeline finished.", flush=True)
         
     except Exception as e:
         print(f"❌ Error saving file: {e}", flush=True)
+        # import traceback
+        # traceback.print_exc()
 
 def save_empty():
     output = {
