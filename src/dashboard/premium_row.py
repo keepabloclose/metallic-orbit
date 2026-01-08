@@ -6,7 +6,7 @@ from src.utils.logo_manager import LogoManager
 # Create instance (singleton-like pattern essentially)
 logo_manager = LogoManager()
 
-def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigate_callback, home_trends=None, away_trends=None, unique_key=None):
+def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigate_callback, home_trends=None, away_trends=None, unique_key=None, extra_strategies=None, strategy_callback=None):
     """
     Renders a single match row in a 'Premium' dense layout.
     Mimics user's requested style: Date | Teams | Form | Stats | Trends | Odds
@@ -61,16 +61,22 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
         return html
 
     def get_trend_pill(text, sentiment='good'):
-        # Colors: Green (Good/High), Orange (Low/Bad)
-        bg_col = "#dcfce7" if sentiment == 'good' else "#ffedd5"
-        txt_col = "#166534" if sentiment == 'good' else "#9a3412"
-        border = "#86efac" if sentiment == 'good' else "#fdba74"
+        # Colors: Green (Good/High), Orange (Low/Bad), Purple (Strategy)
+        if sentiment == 'strategy':
+            bg_col = "#faf5ff" # Purple-50
+            txt_col = "#6b21a8" # Purple-800
+            border = "#d8b4fe" # Purple-300
+        else:
+            bg_col = "#dcfce7" if sentiment == 'good' else "#ffedd5"
+            txt_col = "#166534" if sentiment == 'good' else "#9a3412"
+            border = "#86efac" if sentiment == 'good' else "#fdba74"
         
-        # Override for negative semantics
-        if "Under" in text or "recibe" in text.lower() or "-2.5" in text or "-3.5" in text:
-             bg_col = "#ffedd5"
-             txt_col = "#9a3412"
-             border = "#fdba74"
+        # Override for negative semantics (only if not strategy)
+        if sentiment != 'strategy':
+            if "Under" in text or "recibe" in text.lower() or "-2.5" in text or "-3.5" in text:
+                bg_col = "#ffedd5"
+                txt_col = "#9a3412"
+                border = "#fdba74"
 
         return f'<span style="background-color:{bg_col};color:{txt_col};border:1px solid {border};padding:1px 6px;border-radius:4px;font-size:0.75em;margin-right:4px;margin-bottom:2px;display:inline-block;">{text}</span>'
 
@@ -107,9 +113,27 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
     trends_html = ""
     count = 0
     
-    # Process Home Trends
+    # 0. STRATEGIES (High Value) - Highlighted
+    # 0. STRATEGIES (High Value) - Highlighted
+    # Only render as HTML pills if NO callback is provided (otherwise rendered as buttons)
+    if extra_strategies and not strategy_callback:
+        for strat in extra_strategies:
+            s_name = strat.get('suggestion', 'Estrategia')
+            s_prob = strat.get('prob', 0)
+            s_odd = strat.get('odd')
+            
+            # Format: Name (84%) [Odd]
+            txt = f"★ {s_name} ({s_prob}%)"
+            if s_odd and s_odd != 'N/A':
+                txt += f" 💰{s_odd}"
+                
+            trends_html += get_trend_pill(txt, sentiment='strategy')
+            count += 1 # Count strategies towards the total pill limit
+    
+    # 1. HOME TRENDS
     if home_trends:
         for t in home_trends[:2]:
+            if count >= 4: break # Limit total pills
             display_text = enrich_text_with_odd(t['text'], match)
             trends_html += get_trend_pill(display_text, 'good')
             count += 1 
@@ -132,13 +156,16 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
     # trends_html += risk_html # REMOVED: Caused NameError
 
     # 4. RENDER LAYOUT
-    with st.container(border=True):
-        # Columns: Time (1) | Teams (2.5) | Form (1.5) | Stats (1.5) | Trends (3.5) | Odds (2)
-        c1, c2, c3, c4, c5, c6 = st.columns([1, 2.5, 1.5, 1.5, 3.5, 2])
+    # 4. RENDER LAYOUT
+    with st.container(): # Removed border=True because the Update CSS already adds it to wrappers? OR keep it for card effect. Keep it.
+        # Actually better to use CSS class for Density.
+        
+        # Columns: Time/Div (0.8) | Logos+Teams (3) | Form (1) | Stats (1.2) | Trends (4) | Odds+Action (2)
+        c1, c2, c3, c4, c5, c6 = st.columns([0.8, 3, 1, 1.2, 4, 1.8], gap="small")
         
         with c1:
-            st.caption(f"{div}") 
-            st.markdown(f"**{time}**")
+            # Merged for compactness
+            st.markdown(f"<div style='line-height:1.2'><small style='color:#888'>{div}</small><br><b>{time}</b></div>", unsafe_allow_html=True)
             
         with c2:
             # Teams with Logos
@@ -146,84 +173,72 @@ def render_premium_match_row(match, predictor, patterns, forms_analyzer, navigat
             al = away_logo if away_logo else default_logo
             
             st.markdown(f"""
-            <div style="display:flex;align-items:center;margin-bottom:4px;">
-                <img src="{hl}" onerror="this.src='{default_logo}'" style="width:24px;height:24px;margin-right:8px;object-fit:contain;">
-                <span style="font-weight:600;font-size:1.05em;">{home}</span>
+            <div style="display:flex;align-items:center;margin-bottom:2px;">
+                <img src="{hl}" onerror="this.src='{default_logo}'" style="width:20px;height:20px;margin-right:6px;object-fit:contain;">
+                <span style="font-weight:600;font-size:1em;">{home}</span>
             </div>
             <div style="display:flex;align-items:center;">
-                <img src="{al}" onerror="this.src='{default_logo}'" style="width:24px;height:24px;margin-right:8px;object-fit:contain;">
-                <span style="font-weight:600;font-size:1.05em;">{away}</span>
+                <img src="{al}" onerror="this.src='{default_logo}'" style="width:20px;height:20px;margin-right:6px;object-fit:contain;">
+                <span style="font-weight:600;font-size:1em;">{away}</span>
             </div>
             """, unsafe_allow_html=True)
             
         with c3:
-            st.markdown(get_form_html(form_h), unsafe_allow_html=True)
-            st.markdown(get_form_html(form_a), unsafe_allow_html=True)
+            st.markdown(f"<div style='margin-bottom:2px'>{get_form_html(form_h)}</div>{get_form_html(form_a)}", unsafe_allow_html=True)
             
         with c4:
-            st.caption("Goles / Pred")
-            st.markdown(f"{g_h:.1f} / {g_a:.1f}")
-            
-            # Display Prediction Result (Pre-calculated)
-            if pred_row:
-                p_h = pred_row.get('REG_HomeGoals', 0)
-                p_a = pred_row.get('REG_AwayGoals', 0)
-                
-                # Format: 🎯 2.1 - 1.0 (or rounded 2-1)
-                st.markdown(f"**🎯 {p_h:.0f} - {p_a:.0f}**", help=f"Exacto: {p_h:.2f} - {p_a:.2f}")
-            else:
-                 st.markdown("-")
-            
-
-            
+             # Compact Stats
+             # Goles / Pred (Small)
+             pred_txt = "-"
+             if pred_row:
+                 p_h = pred_row.get('REG_HomeGoals', 0)
+                 p_a = pred_row.get('REG_AwayGoals', 0)
+                 pred_txt = f"{p_h:.0f}-{p_a:.0f}"
+             
+             st.markdown(f"""
+             <div style='line-height:1.3;font-size:0.85em'>
+             <span style='color:#666'>Goles:</span> <b>{g_h:.1f} / {g_a:.1f}</b><br>
+             <span style='color:#666'>Pred:</span> <b style='color:#2563EB'>{pred_txt}</b>
+             </div>
+             """, unsafe_allow_html=True)
+             
         with c5:
-            st.caption("Tendencias / Riesgos")
-            
-            # 4.0 EVOLUTION VISUALS
-            # We use pred_row calculated in previous column (Scope issue? No, we need to ensure it's calculated before or move calculation up)
-            # Actually, `pred_row` is local to c4 scope in current code. 
-            # Better to move prediction UP before columns.
-            pass # See Instruction below for full replace logic to fix scope
-            
-            # --- MOVED PREDICTION UP ---
-            st.markdown(trends_html if trends_html else "<span style='color:#ccc;font-size:0.8em'>-</span>", unsafe_allow_html=True)
+            # Trends (Compact)
+            if not trends_html:
+                st.markdown("<span style='color:#ccc;font-size:0.8em'>-</span>", unsafe_allow_html=True)
+            # Interactive Strategies (Buttons)
+            if extra_strategies and strategy_callback:
+                for i, s in enumerate(extra_strategies):
+                     b_key = f"strat_{unique_key}_{i}"
+                     s_name = s.get('suggestion', 'Strat')
+                     s_prob = s.get('prob', 0)
+                     s_odd = s.get('odd')
+                     
+                     lbl = f"★ {s_name} ({s_prob}%)"
+                     if s_odd and s_odd != 'N/A':
+                          lbl += f" 💰{s_odd}"
+                          
+                     # Use small button or distinct style
+                     if st.button(lbl, key=b_key, type="secondary", use_container_width=True):
+                          strategy_callback(match, s)
+                          
+            st.markdown(trends_html, unsafe_allow_html=True)
 
         with c6:
-            # Odds Grid
-            # Odds Grid
-            # 1X2 Row
-            st.markdown(f"""
-            <div style="display:flex;gap:4px;font-size:0.8em;font-weight:bold;margin-bottom:4px;">
-                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;flex:1;text-align:center;">1<br><span style="color:#000;">{odd_1}</span></div>
-                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;flex:1;text-align:center;">X<br><span style="color:#000;">{odd_x}</span></div>
-                <div style="background:#f0f0f0;padding:4px;border-radius:4px;color:#333;flex:1;text-align:center;">2<br><span style="color:#000;">{odd_2}</span></div>
+            # Odds Grid (Super Compact)
+            col_odds = """
+            <div style="display:flex;gap:2px;font-size:0.75em;text-align:center;margin-bottom:4px;">
+                <div style="background:#f1f5f9;padding:2px;border-radius:3px;flex:1;">1 <b style='color:#1e293b'>{o1}</b></div>
+                <div style="background:#f1f5f9;padding:2px;border-radius:3px;flex:1;">X <b style='color:#1e293b'>{ox}</b></div>
+                <div style="background:#f1f5f9;padding:2px;border-radius:3px;flex:1;">2 <b style='color:#1e293b'>{o2}</b></div>
             </div>
-            """, unsafe_allow_html=True)
+            """.replace("{o1}", str(odd_1)).replace("{ox}", str(odd_x)).replace("{o2}", str(odd_2))
             
-            # Extra Markets Row (Over / BTTS)
-            o_over = match.get('B365_Over2.5') or match.get('B365>2.5') or match.get('Avg>2.5')
-            o_btts = match.get('B365_BTTS_Yes')
-            
-            # Format nicely
-            try:
-                disp_over = f"{float(o_over):.2f}" if o_over and str(o_over).lower() != 'nan' else "-"
-            except: disp_over = "-"
+            st.markdown(col_odds, unsafe_allow_html=True)
 
-            try:
-                disp_btts = f"{float(o_btts):.2f}" if o_btts and str(o_btts).lower() != 'nan' else "-"
-            except: disp_btts = "-"
-            
-            # Always show Over/BTTS row (with placeholders if missing)
-            st.markdown(f"""
-            <div style="display:flex;gap:4px;font-size:0.75em;color:#555;">
-                <div style="background:#eef2ff;padding:2px 6px;border-radius:4px;flex:1;text-align:center;">O2.5: <b>{disp_over}</b></div>
-                <div style="background:#eef2ff;padding:2px 6px;border-radius:4px;flex:1;text-align:center;">BTTS: <b>{disp_btts}</b></div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("---")
             b_key = f"btn_prem_{home}_{away}"
-            if unique_key:
-                b_key += f"_{unique_key}"
-            if st.button("Ver Predicción ➡️", key=b_key):
+            if unique_key: b_key += f"_{unique_key}"
+            
+            # Action Button (Small)
+            if st.button("Ver ➡️", key=b_key, help="Ver Análisis Completo", use_container_width=True):
                  navigate_callback(match)

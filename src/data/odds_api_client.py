@@ -7,7 +7,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 class OddsApiClient:
-    API_KEY = "e9be0a4fb2370fa9a2b574fccd726c50da0aae8acfd94a4b6c286a92b62345a2"
+    API_KEYS = [
+        "e9be0a4fb2370fa9a2b574fccd726c50da0aae8acfd94a4b6c286a92b62345a2",
+        "5f34945e265a8fc0de7e377864ba8870e229ec45f0e6338e53998f6dcbba7a89"
+    ]
     BASE_URL = "https://api2.odds-api.io/v3"
     CACHE_DIR = "data_cache/odds_api"
     
@@ -29,11 +32,45 @@ class OddsApiClient:
     }
 
     def __init__(self):
+        self.current_key_index = 0
         if not os.path.exists(self.CACHE_DIR):
             try:
                 os.makedirs(self.CACHE_DIR)
             except:
                 pass
+                
+    @property
+    def current_key(self):
+        return self.API_KEYS[self.current_key_index]
+        
+    def _rotate_key(self):
+        self.current_key_index = (self.current_key_index + 1) % len(self.API_KEYS)
+        print(f"[OddsAPI] 🔄 Rotated API Key to index {self.current_key_index}")
+        
+    def _make_request(self, url_template):
+        """
+        Wrapper to handle API Key Rotation.
+        url_template: string with {api_key} placeholder.
+        """
+        for _ in range(len(self.API_KEYS)):
+            url = url_template.format(api_key=self.current_key)
+            try:
+                res = requests.get(url)
+                if res.status_code == 200:
+                    return res
+                elif res.status_code in [401, 403, 429]:
+                    print(f"[OddsAPI] Key failed with status {res.status_code}. Rotating...")
+                    self._rotate_key()
+                    continue # Try next key
+                else:
+                    return res # Return error state to caller
+            except Exception as e:
+                print(f"[OddsAPI] Exception during request: {e}. Rotating...")
+                self._rotate_key()
+                continue
+                
+        # If all keys fail, return the last response or None
+        return None
 
     def _get_cache_path(self, key):
         return os.path.join(self.CACHE_DIR, f"{key}.json")
@@ -114,7 +151,8 @@ class OddsApiClient:
                     try:
                         last_fetch_dt = datetime.fromisoformat(last_fetch)
                         age = datetime.utcnow() - last_fetch_dt
-                        if age.total_seconds() < (6 * 3600): # 6 Hours TTL
+                        # REDUCED TTL: 45 Minutes for freshness (User Request)
+                        if age.total_seconds() < (45 * 60): 
                             print(f"[OddsAPI] Using Persisted Data from DB (Age: {age}). Skipping API.")
                             return league_data
                         else:
@@ -129,8 +167,10 @@ class OddsApiClient:
             
         # Initialize DB fallback (Global scope for function)
         db_fallback = pd.DataFrame()
-        if not db.empty:
-             db_fallback = db
+        if not db.empty and 'League' in db.columns:
+             db_fallback = db[db['League'] == league_code]
+        elif not db.empty:
+             db_fallback = pd.DataFrame() # Don't return mixed data if League col missing
 
         # 1. Fetch Events (Standard Logic)
         cache_key = f"events_{league_code}"
@@ -139,13 +179,15 @@ class OddsApiClient:
         # ... (Events Fetch Logic same as before) ...
         if not events:
             try:
-                url = f"{self.BASE_URL}/events?apiKey={self.API_KEY}&sport=football&league={slug}"
-                res = requests.get(url)
-                if res.status_code == 200:
+                # FIX: V3 requires sport=football AND league=...
+                url_template = f"{self.BASE_URL}/events?apiKey={{api_key}}&sport=football&league={slug}"
+                res = self._make_request(url_template) # Use rotation wrapper
+                
+                if res and res.status_code == 200:
                     data = res.json()
                     events = data.get('data', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
                     self._save_cache(cache_key, events)
-                elif res.status_code == 429:
+                elif res and res.status_code == 429:
                     print(f"[OddsAPI] Quota Exceeded (429). Using Best Available DB Data.")
                     # Return whatever we have in DB for this league, even if stale
                     if not db.empty and 'League' in db.columns:
@@ -234,7 +276,7 @@ class OddsApiClient:
                 print(f"[OddsAPI] Batch TTL: {ttl_min}m (Earliest match in {(min_seconds_to_start/3600):.1f}h)")
 
                 # Check cache for this batch
-                batch_cache_key = f"odds_{slug}_{hash(batch_str)}"
+                batch_cache_key = f"odds_v2_{slug}_{hash(batch_str)}" # V2 to bust old cache
                 cached_batch = self._load_cache(batch_cache_key, ttl_minutes=ttl_min)
                 
                 odds_data = []
@@ -243,11 +285,12 @@ class OddsApiClient:
                     odds_data = cached_batch
                 else:
                     # Use '/odds/multi' for batch support per documentation
-                    # REMOVED strict market filter to get EVERYTHING available (including BTTS if it exists)
-                    url = f"{self.BASE_URL}/odds/multi?apiKey={self.API_KEY}&eventIds={batch_str}&bookmakers=Bet365" 
-                    res = requests.get(url)
+                    # ADDED markets parameter to fetch Totals and BTTS
+                    # 2024-01-08: Added alternate_totals to catch 1.5, 3.5 lines
+                    url_template = f"{self.BASE_URL}/odds/multi?apiKey={{api_key}}&eventIds={batch_str}&bookmakers=Bet365&markets=h2h,totals,btts,alternate_totals" 
+                    res = self._make_request(url_template)
                     
-                    if res.status_code == 200:
+                    if res and res.status_code == 200:
                         raw = res.json()
                         odds_data = raw if isinstance(raw, list) else [raw]
                         self._save_cache(batch_cache_key, odds_data)
@@ -306,11 +349,20 @@ class OddsApiClient:
             # Strict bet365 check
             found_bookie = None
             
-            # API might return 'bet365', 'Bet365', 'Bet365 (no latency)'
-            for b_key in bookmakers.keys():
-                if 'bet365' in b_key.lower():
-                    found_bookie = bookmakers[b_key]
-                    break
+            found_bookie = None
+            
+            # API returns a list of bookmakers
+            if isinstance(bookmakers, list):
+                for b in bookmakers:
+                    if 'bet365' in b.get('key', '').lower() or 'bet365' in b.get('title', '').lower():
+                        found_bookie = b.get('markets', [])
+                        break
+            elif isinstance(bookmakers, dict):
+                 # Legacy/Edge case support
+                 for b_key in bookmakers.keys():
+                    if 'bet365' in b_key.lower():
+                        found_bookie = bookmakers[b_key]
+                        break
             
             if not found_bookie: return None
             
@@ -350,7 +402,6 @@ class OddsApiClient:
                     m_key = 'btts'
                 
                 # Catch-all for totals (e.g. "Alternative Match Goals", "Match Goals")
-                elif 'total' in name_l and ('goal' in name_l or 'match' in name_l): m_key = 'totals'
                 elif 'alternative' in name_l and 'goal' in name_l: m_key = 'totals'
                 
                 # 1. Match Result (1x2)
@@ -398,22 +449,49 @@ class OddsApiClient:
                     elif outcomes_arr:
                         for o in outcomes_arr:
                              point = o.get('point')
-                             if point is not None:
-                                 n = str(o.get('name') or o.get('label') or '').lower()
-                                 price = o.get('price') or o.get('odds')
-                                 # Save generic keys: B365_OverX.X
-                                 if 'over' in n:
-                                     totals_dict[f'B365_Over{point}'] = price
-                                 elif 'under' in n:
-                                     totals_dict[f'B365_Under{point}'] = price
+                             # Handle cases where point might be embedded in name "Over 2.5"
+                             if not point:
+                                 nm = o.get('name', '')
+                                 # Simple heuristic extraction if API changes schema
+                                 import re
+                                 match = re.search(r'(\d+\.?\d*)', nm)
+                                 if match: point = float(match.group(1))
 
-                # 3. BTTS
+                             if point is not None:
+                                 name = o.get('name', '').lower()
+                                 price = o.get('price')
+                                 
+                                 # Standardize Keys
+                                 if 'over' in name:
+                                     totals_dict[f'B365_Over{point}'] = float(price)
+                                 elif 'under' in name:
+                                     totals_dict[f'B365_Under{point}'] = float(price)
+
+                # 3. BTTS (Both Teams To Score)
                 elif m_key == 'btts':
-                    odds_list = m.get('outcomes', [])
-                    for o in odds_list:
-                        n = o.get('name', '').lower() # 'Yes' or 'No'
-                        if 'yes' in n: b365_btts_yes = o.get('price')
-                        elif 'no' in n: b365_btts_no = o.get('price')
+                    data = m.get('outcomes') or m.get('odds')
+                    
+                    if isinstance(data, dict):
+                        # Direct Dict: {'yes': '1.75', 'no': '2.00'}
+                        b365_btts_yes = data.get('yes')
+                        b365_btts_no = data.get('no')
+                        
+                    elif isinstance(data, list):
+                        for o in data:
+                            # Check for Compact Key-Value inside List
+                            if isinstance(o, dict) and ('yes' in o or 'no' in o):
+                                if 'yes' in o: b365_btts_yes = o.get('yes')
+                                if 'no' in o: b365_btts_no = o.get('no')
+                                continue
+                                
+                            # Standard Format: {'name': 'Yes', 'price': 1.7}
+                            name = (o.get('name') or o.get('label') or '').lower()
+                            price = o.get('price')
+                            
+                            if 'yes' in name: 
+                                b365_btts_yes = price
+                            elif 'no' in name:
+                                 b365_btts_no = price
 
                 # 4. Corners / Cards / Team Totals (Generic Parsing)
                 # If market key contains 'corner', 'card', 'team' try to find useful lines
@@ -474,4 +552,5 @@ class OddsApiClient:
             return row
             
         except Exception as e:
+            # print(f"Parse error: {e}")
             return None

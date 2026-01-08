@@ -1,0 +1,76 @@
+{
+    "keepa": {
+        "username": "keepa",
+        "password_hash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+        "name": "pablo",
+        "surname": "perez",
+        "email": "pabloperezdejuan@gmail.com",
+        "joined_at": "2026-01-08T10:29:56.014823",
+        "preferences": {
+            "leagues": [
+                "SP1",
+                "SP2",
+                "E0",
+                "E1",
+                "D1",
+                "I1",
+                "F1",
+                "P1",
+                "N1"
+            ],
+            "seasons": [
+                "2526",
+                "2425"
+            ]
+        }
+    },
+    "test": {
+        "username": "test",
+        "password_hash": "d74ff0ee8da3b9806b18c877dbf29bbde50b5bd8e4dad7a3a725000feb82e8f1",
+        "name": "Test",
+        "surname": "User",
+        "email": "test@example.com",
+        "joined_at": "2026-01-08T10:32:35.513448",
+        "preferences": {
+            "leagues": [
+                "SP1",
+                "SP2",
+                "E0",
+                "E1",
+                "D1",
+                "I1",
+                "F1"
+            ],
+            "seasons": [
+                "2526",
+                "2425",
+                "2324"
+            ]
+        }
+    },
+    "yolo_tester": {
+        "username": "yolo_tester",
+        "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+        "name": "Yolo",
+        "surname": "Tester",
+        "email": "test@example.com",
+        "joined_at": "2026-01-08T13:37:01.124127",
+        "preferences": {
+            "leagues": [
+                "SP1",
+                "SP2",
+                "E0",
+                "E1",
+                "D1",
+                "I1",
+                "F1",
+                "P1",
+                "N1"
+            ],
+            "seasons": [
+                "2526",
+                "2425"
+            ]
+        }
+    }
+}

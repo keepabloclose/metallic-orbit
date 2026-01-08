@@ -20,6 +20,9 @@ class Predictor:
         if 'Date' in self.history.columns:
             self.history['Date'] = pd.to_datetime(self.history['Date'])
             self.history = self.history.sort_values('Date')
+            
+        # Standardize Columns
+        self.history = self.history.rename(columns={'Home Team': 'HomeTeam', 'Away Team': 'AwayTeam'})
         
         # KEY FIX: Normalize names in the DataFrame itself so lookups match
         # Now using Centralized Normalizer

@@ -127,15 +127,16 @@ class FixturesFetcher:
                 
                 if all_api_odds:
                     enrichment_df = pd.concat(all_api_odds)
+                    # DEDUPLICATION: Prevent Merge Explosion if Odds DB has multiple entries
+                    # Keep the LAST entry (Latest odds)
+                    enrichment_df = enrichment_df.drop_duplicates(subset=['HomeTeam', 'AwayTeam'], keep='last')
+
                     # DYNAMIC MERGE of all B365 columns found
                     # API now returns variable columns like B365_Over3.5, B365_Under1.5 etc.
                     # We merge ALL of them.
                     
                     enrichment_df['HomeTeam'] = enrichment_df['HomeTeam'].apply(NameNormalizer.normalize)
                     enrichment_df['AwayTeam'] = enrichment_df['AwayTeam'].apply(NameNormalizer.normalize)
-                    
-                    enrichment_df['MergeKey'] = enrichment_df['HomeTeam'] + "_" + enrichment_df['AwayTeam']
-                    final_df['MergeKey'] = final_df['HomeTeam'] + "_" + final_df['AwayTeam']
                     
                     enrichment_df['MergeKey'] = enrichment_df['HomeTeam'] + "_" + enrichment_df['AwayTeam']
                     final_df['MergeKey'] = final_df['HomeTeam'] + "_" + final_df['AwayTeam']
@@ -200,30 +201,39 @@ class FixturesFetcher:
 
     def _get_manual_sp2_fixtures(self):
         """
-        Returns the specific 'Jornada 20' list requested by the user.
-        Dates relative to Jan 2, 2026 (Friday).
+        Returns the specific 'Jornada 21' list (Real Schedule).
+        Ref: User Screenshot (Jan 8 2026 -> Start Jan 9 Friday).
         """
-        # FIX: Hardcode the base date to Match Jornada 20 (Jan 2 2026)
-        # Using now() caused these past matches to shift to "Today" when run later.
-        base_date = pd.Timestamp("2026-01-02").normalize()
+        # Base Date: Friday Jan 9, 2026
+        fri = pd.Timestamp("2026-01-09").normalize()
+        sat = fri + pd.Timedelta(days=1)
+        sun = fri + pd.Timedelta(days=2)
+        mon = fri + pd.Timedelta(days=3)
         
-        # Matches from screenshot
         data = [
-            # Hoy (Jan 2)
-            {'Div': 'SP2', 'Date': base_date, 'Time': '20:30', 'HomeTeam': 'Eibar', 'AwayTeam': 'Mirandes'},
-            # Mañana (Jan 3)
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=1), 'Time': '14:00', 'HomeTeam': 'Cultural Leonesa', 'AwayTeam': 'Sociedad B'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=1), 'Time': '16:15', 'HomeTeam': 'Almeria', 'AwayTeam': 'Granada'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=1), 'Time': '16:15', 'HomeTeam': 'Castellon', 'AwayTeam': 'Huesca'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=1), 'Time': '18:30', 'HomeTeam': 'Valladolid', 'AwayTeam': 'Santander'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=1), 'Time': '21:00', 'HomeTeam': 'Cordoba', 'AwayTeam': 'Burgos'},
-            # Domingo 4/1 (Jan 4)
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=2), 'Time': '14:00', 'HomeTeam': 'Sp Gijon', 'AwayTeam': 'Malaga'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=2), 'Time': '16:15', 'HomeTeam': 'Ceuta', 'AwayTeam': 'Andorra'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=2), 'Time': '18:30', 'HomeTeam': 'Zaragoza', 'AwayTeam': 'Las Palmas'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=2), 'Time': '18:30', 'HomeTeam': 'Albacete', 'AwayTeam': 'Leganes'},
-            {'Div': 'SP2', 'Date': base_date + pd.Timedelta(days=2), 'Time': '21:00', 'HomeTeam': 'Dep. La Coruna', 'AwayTeam': 'Cadiz'},
+            # Viernes 9/1
+            {'Div': 'SP2', 'Date': fri, 'Time': '20:30', 'HomeTeam': 'Cadiz', 'AwayTeam': 'Sp Gijon'},
+            
+            # Sabado 10/1
+            {'Div': 'SP2', 'Date': sat, 'Time': '14:00', 'HomeTeam': 'Mirandes', 'AwayTeam': 'Almeria'},
+            {'Div': 'SP2', 'Date': sat, 'Time': '16:15', 'HomeTeam': 'Andorra', 'AwayTeam': 'Cultural Leonesa'},
+            {'Div': 'SP2', 'Date': sat, 'Time': '16:15', 'HomeTeam': 'Sociedad B', 'AwayTeam': 'Albacete'},
+            {'Div': 'SP2', 'Date': sat, 'Time': '18:30', 'HomeTeam': 'Burgos', 'AwayTeam': 'Eibar'},
+            {'Div': 'SP2', 'Date': sat, 'Time': '18:30', 'HomeTeam': 'Las Palmas', 'AwayTeam': 'Dep. La Coruna'},
+            {'Div': 'SP2', 'Date': sat, 'Time': '21:00', 'HomeTeam': 'Santander', 'AwayTeam': 'Zaragoza'},
+            # {'Div': 'SP2', 'Date': sat, 'Time': '14:00', 'HomeTeam': 'Leganes', 'AwayTeam': 'Valladolid'}, # Removed Dupe
+            
+            # Domingo 11/1
+            {'Div': 'SP2', 'Date': sun, 'Time': '14:00', 'HomeTeam': 'Leganes', 'AwayTeam': 'Valladolid'},
+            
+            {'Div': 'SP2', 'Date': sun, 'Time': '16:15', 'HomeTeam': 'Malaga', 'AwayTeam': 'Ceuta'},
+            {'Div': 'SP2', 'Date': sun, 'Time': '16:15', 'HomeTeam': 'Granada', 'AwayTeam': 'Castellon'},
+            
+            # Lunes 12/1
+            {'Div': 'SP2', 'Date': mon, 'Time': '20:30', 'HomeTeam': 'Huesca', 'AwayTeam': 'Cordoba'},
         ]
+        # Clean double entry for Leganes if I made mistake above - corrected.
+        
         return pd.DataFrame(data)
 
     def _get_mock_fixtures(self):

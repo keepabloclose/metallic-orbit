@@ -32,6 +32,8 @@ class NameNormalizer:
             'Celta de Vigo': 'Celta',
             'Sevilla FC': 'Sevilla',
             'Sevilla': 'Sevilla',
+            'Villarreal CF': 'Villarreal', # FIX
+            'Valencia CF': 'Valencia',     # FIX
             'Deportivo Alaves': 'Alaves',
             'Deportivo Alavés': 'Alaves',
             'Alavés': 'Alaves',
@@ -125,20 +127,38 @@ class NameNormalizer:
             'Swansea City': 'Swansea',
             'Ipswich Town': 'Ipswich',
             'Southampton FC': 'Southampton',
+            'Arsenal FC': 'Arsenal',
+            'Liverpool FC': 'Liverpool',
+            'Chelsea FC': 'Chelsea',
+            'Aston Villa FC': 'Aston Villa',
+            'Everton FC': 'Everton',
+            'Fulham FC': 'Fulham',
+            'Brentford FC': 'Brentford',
+            'Crystal Palace FC': 'Crystal Palace',
+            'West Ham United': 'West Ham',
+            'West Ham United FC': 'West Ham',
+            'AFC Bournemouth': 'Bournemouth',
+            'Bournemouth': 'Bournemouth',
+            'US Cremonese': 'Cremonese', # Fix for Serie A match
+            'Cremonese': 'Cremonese',
 
             # --- GERMANY (D1) ---
             '1. FC Union Berlin': 'Union Berlin',
             '1. FSV Mainz 05': 'Mainz',
             'Mainz 05': 'Mainz',
+            'FSV Mainz': 'Mainz', # API
             'FC St. Pauli': 'St Pauli',
             'St. Pauli': 'St Pauli',
             '1. FC Heidenheim 1846': 'Heidenheim',
+            '1. FC Heidenheim': 'Heidenheim', # API
             'Heidenheim': 'Heidenheim',
             '1. FC Kln': 'FC Koln',
             '1. FC Köln': 'FC Koln',
             'FC Köln': 'FC Koln',
+            '1. FC Cologne': 'FC Koln', # API
             'Bayer 04 Leverkusen': 'Leverkusen',
             'Bayer Leverkusen': 'Leverkusen',
+            'Leverkusen': 'Leverkusen',
             'Borussia Mönchengladbach': "M'gladbach",
             'Borussia Moenchengladbach': "M'gladbach",
             'Borussia M.Gladbach': "M'gladbach",
@@ -160,41 +180,17 @@ class NameNormalizer:
             'SC Freiburg': 'Freiburg',
             'Hamburger SV': 'Hamburg',
             'Fortuna Dusseldorf': 'Fortuna Dusseldorf',
-
-            # --- FRANCE (F1) ---
-            'AS Monaco': 'Monaco',
-            'FC Lorient': 'Lorient', 
-            'Paris Saint-Germain': 'Paris SG',
-            'Paris SG': 'Paris SG',
-            'Olympique de Marseille': 'Marseille',
-            'Olympique Marseille': 'Marseille',
-            'Olympique Lyonnais': 'Lyon',
-            'Olympique Lyon': 'Lyon',
-            'Stade Rennais': 'Rennes',
-            'Stade Rennais FC': 'Rennes',
-            'OGC Nice': 'Nice',
-            'Lille OSC': 'Lille',
-            'RC Lens': 'Lens',
-            'Stade Brestois 29': 'Brest',
-            'Stade de Reims': 'Reims',
-            'Montpellier HSC': 'Montpellier',
-            'RC Strasbourg Alsace': 'Strasbourg',
-            'Toulouse FC': 'Toulouse',
-            'FC Nantes': 'Nantes',
-            'Le Havre AC': 'Le Havre',
-            'AJ Auxerre': 'Auxerre',
-            'AS Saint-Étienne': 'St Etienne',
-            'AS Saint-Etienne': 'St Etienne',
-            'Angers SCO': 'Angers',
-            'Paris FC': 'Paris FC',
-            'FC Metz': 'Metz',
-
+            'Werder Bremen': 'SV Werder Bremen', 
+            
             # --- ITALY (I1) ---
             'Inter Milan': 'Inter',
             'Internazionale': 'Inter',
+            'Inter Milano': 'Inter', # API
             'AC Milan': 'Milan',
             'Juventus FC': 'Juventus',
+            'Juventus Turin': 'Juventus', # API
             'SS Lazio': 'Lazio',
+            'Lazio Rome': 'Lazio', # API
             'AS Roma': 'Roma',
             'SSC Napoli': 'Napoli',
             'Atalanta BC': 'Atalanta',
@@ -212,8 +208,48 @@ class NameNormalizer:
             'Empoli FC': 'Empoli',
             'Cagliari Calcio': 'Cagliari',
             'Parma Calcio 1913': 'Parma',
+            'Parma Calcio': 'Parma', # API
             'Parma': 'Parma',
             'Como 1907': 'Como',
             'Venezia FC': 'Venezia',
+            'Pisa SC': 'Pisa', # API
+            'Sassuolo Calcio': 'Sassuolo', # API
+
+            # --- SPAIN (SP1/SP2 updates) ---
+            'Real Betis Seville': 'Betis',
+            'RC Celta de Vigo': 'Celta', 
+            'Espanyol Barcelona': 'Espanyol',
+            'Real Sociedad San Sebastian': 'Sociedad',
+            'Real Sociedad San Sebastian B': 'Sociedad B',
+            'Real Valladolid': 'Valladolid',
+            'Albacete Balompie': 'Albacete',
+            'CD Castellon': 'Castellon',
+            'RC Deportivo La Coruna': 'Dep. La Coruna',
+
+            # --- NETHERLANDS (N1) ---
+            'Ajax Amsterdam': 'Ajax',
+            'Feyenoord Rotterdam': 'Feyenoord',
+            'PSV Eindhoven': 'PSV',
+            'SC Heerenveen': 'Heerenveen',
+            'AZ Alkmaar': 'AZ Alkmaar', # Verify Local
+            'FC Twente Enschede': 'Twente',
+            'FC Groningen': 'Groningen',
+            'NEC Nijmegen': 'NEC Nijmegen',
+            'PEC Zwolle': 'Zwolle',
+            'Sparta Rotterdam': 'Sparta Rotterdam',
+            'Excelsior Rotterdam': 'Excelsior',
+            'Go Ahead Eagles': 'Go Ahead Eagles',
+            'Fortuna Sittard': 'Fortuna Sittard',
+            'FC Utrecht': 'Utrecht',
+            'FC Volendam': 'Volendam',
+            'Heracles Almelo': 'Heracles',
+            'SC Telstar': 'Telstar',
+            'NAC Breda': 'NAC Breda',
+            
+            # --- PORTUGAL (P1) ---
+            'Santa Clara Azores': 'Santa Clara',
+            'Nacional da Madeira': 'Nacional',
+            'Moreirense FC': 'Moreirense',
+            'CD Tondela': 'Tondela',
         }
         return mapping.get(name, name)

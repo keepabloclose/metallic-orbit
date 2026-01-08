@@ -174,11 +174,11 @@ def target_cards_55(row):
 
 PREMATCH_PATTERNS = [
     ("Local Dominante (Estricto)", cond_home_dominant, target_home_win, "B365H"),
-    ("Festival de Goles (>2.5)", cond_goal_fest_strict, target_over_25, "B365>2.5"),
-    ("Seguro de Gol (>1.5)", cond_over_15_safe, target_over_15, "B365>1.5"), 
+    ("Festival de Goles (>2.5)", cond_goal_fest_strict, target_over_25, "B365_Over2.5"),
+    ("Seguro de Gol (>1.5)", cond_over_15_safe, target_over_15, "B365_Over1.5"), 
     ("Cazando Tigres de Papel (Lay Visitante)", cond_paper_tiger_away, target_home_win, "B365H"),
-    ("Batalla de Tarjetas (>3.5)", cond_cards_battle, lambda r: (r.get('HY',0)+r.get('AY',0)+r.get('HR',0)+r.get('AR',0)) > 3.5, "B365>3.5"),
-    ("Ambos Marcan (BTTS)", cond_btts_high, target_btts, "B365GG"),
+    ("Batalla de Tarjetas (>3.5)", cond_cards_battle, lambda r: (r.get('HY',0)+r.get('AY',0)+r.get('HR',0)+r.get('AR',0)) > 3.5, "B365_Cards_Over3.5"),
+    ("Ambos Marcan (BTTS)", cond_btts_high, target_btts, "B365_BTTS_Yes"),
     
     # New Patterns (No Odds usually available, so no ROI calc)
     ("Lluvia de Tiros (>25)", cond_high_shots_volume, target_shots_25, None),

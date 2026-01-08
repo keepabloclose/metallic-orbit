@@ -5,8 +5,17 @@ class FeatureEngineer:
     def __init__(self, df):
         self.df = df.copy()
         # Ensure Date is datetime
-        self.df['Date'] = pd.to_datetime(self.df['Date'], dayfirst=True)
-        self.df = self.df.sort_values(['Date'])
+        if 'Date' in self.df.columns:
+            self.df['Date'] = pd.to_datetime(self.df['Date'], dayfirst=True)
+            self.df = self.df.sort_values(['Date'])
+        
+        # --- CRITICAL FIX: Deduplicate Input to prevent Merge Explosion ---
+        # If duplicates enter here, the subsequent left-joins (Home/Away stats) will square/cube them.
+        initial_len = len(self.df)
+        if 'HomeTeam' in self.df.columns and 'AwayTeam' in self.df.columns:
+             self.df = self.df.drop_duplicates(subset=['HomeTeam', 'AwayTeam', 'Date'])
+             if len(self.df) < initial_len:
+                 print(f"FeatureEngineer: Dropped {initial_len - len(self.df)} duplicates at entry.")
         
     def add_rest_days(self, cup_schedule=None):
         """
@@ -66,15 +75,28 @@ class FeatureEngineer:
         # We need to calculate these PER TEAM, regardless of whether they played Home or Away
         # This requires reconstructing a 'Team Performance' history
         
+        # GUARD: If we don't have basic results (Goals), we can't calculate rolling stats.
+        if 'FTHG' not in self.df.columns or 'FTAG' not in self.df.columns:
+            print("FeatureEngineer: Missing FTHG/FTAG, skipping Rolling Stats.")
+            return self.df
+
         # Expanded to include Cards (Yellow + Red)
-        cols_needed = ['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR']
+        possible_cols = ['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR']
         
-        home_cols = ['Date', 'HomeTeam', 'FTHG', 'FTAG', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR']
-        away_cols = ['Date', 'AwayTeam', 'FTAG', 'FTHG', 'AST', 'HST', 'AF', 'HF', 'AC', 'HC', 'AY', 'HY', 'AR', 'HR']
+        # Only select columns that actually exist in the dataframe
+        cols_needed = [c for c in possible_cols if c in self.df.columns]
+        
+        # If critical columns like HomeTeam/AwayTeam are missing, we can't do anything (shouldn't happen)
+        if 'HomeTeam' not in cols_needed or 'AwayTeam' not in cols_needed:
+            return self.df
+            
+        home_cols = [c for c in cols_needed if c in ['Date', 'HomeTeam', 'FTHG', 'FTAG', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR']]
+        # For away cols, we need to map carefully.
+        # But for simpler logic: Split DF -> Rename -> Concat
         
         home_stats = self.df[cols_needed].copy()
-        # Rename for Home perspective
-        home_stats = home_stats.rename(columns={
+        # Rename for Home perspective (Safely)
+        rename_map_h = {
             'HomeTeam': 'Team', 'AwayTeam': 'Opponent',
             'FTHG': 'GoalsFor', 'FTAG': 'GoalsAgainst',
             'HST': 'ShotsTargetFor', 'AST': 'ShotsTargetAgainst',
@@ -82,11 +104,12 @@ class FeatureEngineer:
             'HC': 'CornersFor', 'AC': 'CornersAgainst',
             'HY': 'YellowFor', 'AY': 'YellowAgainst',
             'HR': 'RedFor', 'AR': 'RedAgainst'
-        })
+        }
+        home_stats = home_stats.rename(columns={k:v for k,v in rename_map_h.items() if k in home_stats.columns})
         
         away_stats = self.df[cols_needed].copy()
         # Rename for Away perspective
-        away_stats = away_stats.rename(columns={
+        rename_map_a = {
             'AwayTeam': 'Team', 'HomeTeam': 'Opponent',
             'FTAG': 'GoalsFor', 'FTHG': 'GoalsAgainst',
             'AST': 'ShotsTargetFor', 'HST': 'ShotsTargetAgainst',
@@ -94,7 +117,8 @@ class FeatureEngineer:
             'AC': 'CornersFor', 'HC': 'CornersAgainst',
             'AY': 'YellowFor', 'HY': 'YellowAgainst',
             'AR': 'RedFor', 'HR': 'RedAgainst'
-        })
+        }
+        away_stats = away_stats.rename(columns={k:v for k,v in rename_map_a.items() if k in away_stats.columns})
         
         all_stats = pd.concat([home_stats, away_stats]).sort_values(['Team', 'Date'])
         

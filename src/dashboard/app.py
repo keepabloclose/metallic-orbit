@@ -20,53 +20,114 @@ import importlib
 import src.engine.features
 import src.engine.ml_engine
 import src.engine.predictor
+import src.data.upcoming # Import module
+import src.auth.user_manager 
+import src.user.portfolio_manager # Add for reload checks 
+import src.data.odds_api_client # Fix: Force reload odds client 
+
 importlib.reload(src.engine.features)
 importlib.reload(src.engine.ml_engine)
 importlib.reload(src.engine.predictor)
+importlib.reload(src.engine.predictor)
+importlib.reload(src.user.portfolio_manager) # FORCE RELOAD PORTFOLIO
+importlib.reload(src.data.odds_api_client) # FORCE RELOAD ODDS CLIENT
+importlib.reload(src.auth.user_manager)
+importlib.reload(src.auth.user_manager)
+importlib.reload(src.data.upcoming) # FORCE RELOAD FixturesFetcher
+import src.dashboard.premium_row
+importlib.reload(src.dashboard.premium_row) # FORCE RELOAD UI Component
+
 
 from src.engine.features import FeatureEngineer
 from src.engine.patterns import PatternAnalyzer
+# from src.auth.user_manager import UserManager # Moved below to ensure reload works
 
 st.set_page_config(page_title="Sports Betting EV Analyzer", layout="wide")
 
-# --- AUTHENTICATION ---
-def check_password():
-    """Returns `True` if the user had a correct password."""
+# --- STATE INITIALIZATION ---
+if 'view' not in st.session_state:
+    st.session_state['view'] = 'main'
 
-    def password_entered():
-        """Checks whether a password entered by the user is correct."""
-        if st.session_state["username"] == "test" and st.session_state["password"] == "pass":
-            st.session_state["authenticated"] = True
-            # del st.session_state["password"]  # Don't store password
-            # del st.session_state["username"]
-        else:
-            st.session_state["authenticated"] = False
-            st.error("😕 Usuario o contraseña incorrectos")
+# --- AUTHENTICATION & USER MANAGEMENT ---
+from src.auth.user_manager import UserManager
+from src.dashboard.profile_view import render_profile_view
+from src.dashboard.portfolio_view import render_portfolio_view, dialog_add_prediction
+from src.dashboard.premium_row import render_premium_match_row
+from src.engine.settlement import BetSettler # Import Settler
 
+# Initialize Manager
+user_manager = UserManager()
+
+def init_auth():
+    """Handles Login and Registration."""
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
+        st.session_state["user"] = None
 
     if st.session_state["authenticated"]:
         return True
 
-    # Show Login Form
+    # Show Login/Register
     st.title("🔒 Acceso Restringido")
     
-    with st.form("login_form"):
-        st.text_input("Usuario", key="username")
-        st.text_input("Contraseña", type="password", key="password")
-        submit_button = st.form_submit_button("Entrar")
-        
-    if submit_button:
-        password_entered()
-        if st.session_state.get("authenticated"):
-            st.rerun()
+    tab_login, tab_register = st.tabs(["Iniciar Sesión", "Registrarse"])
+    
+    with tab_login:
+        with st.form("login_form"):
+            username = st.text_input("Usuario", key="login_user")
+            password = st.text_input("Contraseña", type="password", key="login_pass")
+            submit_login = st.form_submit_button("Entrar")
             
+            if submit_login:
+                user = user_manager.authenticate(username, password)
+                if user:
+                    st.session_state["authenticated"] = True
+                    st.session_state["user"] = user
+                    # Load preferences into session for global access
+                    st.session_state["user_prefs"] = user.get("preferences", {})
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos.")
+    
+    with tab_register:
+        with st.form("register_form"):
+            new_user = st.text_input("Usuario (Nick)", key="reg_user")
+            new_pass = st.text_input("Contraseña", type="password", key="reg_pass")
+            new_name = st.text_input("Nombre", key="reg_name")
+            new_surname = st.text_input("Apellidos", key="reg_surname")
+            new_mail = st.text_input("Email", key="reg_mail")
+            
+            submit_reg = st.form_submit_button("Crear Cuenta")
+            
+            if submit_reg:
+                success, msg = user_manager.register(new_user, new_pass, new_name, new_surname, new_mail)
+                if success:
+                    st.success("Cuenta creada. Por favor inicia sesión.")
+                else:
+                    st.error(msg)
+    
     return False
 
 # Stop execution if not authenticated
-if not check_password():
+if not init_auth():
     st.stop()
+
+
+
+
+# --- DIALOG HANDLER (Global) ---
+if 'active_prediction' in st.session_state and st.session_state['active_prediction']:
+    item = st.session_state['active_prediction']
+    dialog_add_prediction(user_manager, st.session_state['user']['username'], item['match'], item['strat'])
+    del st.session_state['active_prediction'] 
+
+# Callback for Match Rows
+def on_strategy_click(match_data, strat_data):
+    st.session_state['active_prediction'] = {
+        'match': match_data,
+        'strat': strat_data
+    }
+    st.rerun()
 
 
 def go_to_match(match_data):
@@ -74,7 +135,7 @@ def go_to_match(match_data):
     st.session_state['selected_match'] = match_data
 
 @st.cache_data(ttl=300) # Reduced to 5 mins
-def fetch_upcoming_cached(leagues, _last_updated, cache_bust_v=1):
+def fetch_upcoming_cached(leagues, _last_updated, cache_bust_v=10): # Increment to 10
     # _last_updated is a dummy arg to force cache invalidation when DB changes
     fetcher = FixturesFetcher()
     return fetcher.fetch_upcoming(leagues)
@@ -118,11 +179,7 @@ def load_data(leagues, seasons, version=4): # Incremented version
 
 
 
-st.title("⚽ Analizador de Valor en Apuestas Deportivas")
-
-# Sidebar - Configuration
-st.sidebar.header("Configuración")
-# Added N1 (Netherlands), B1 (Belgium), E1 (Championship) to cover expanded fixtures
+# --- CONSTANTS ---
 league_options = ['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1']
 league_names = {
     'SP1': 'La Liga (España)', 'E0': 'Premier League', 'E1': 'Championship',
@@ -130,35 +187,75 @@ league_names = {
     'P1': 'Liga Portugal', 'N1': 'Eredivisie', 'SP2': 'La Liga 2'
 }
 
-# Compact Horizontal Layout for Config
-c_conf1, c_conf2 = st.sidebar.columns(2)
-with c_conf1:
-    leagues = st.multiselect(
-        "Ligas", 
-        league_options, 
-        default=['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1'], 
-        format_func=lambda x: league_names.get(x, x)
-    )
-with c_conf2:
-    # User Request: Default last 5 seasons -> Reduced to 2 for performance
-    seasons = st.multiselect("Temporadas", ['2526', '2425', '2324', '2223', '2122', '2021'], default=['2526', '2425'])
+st.title("⚽ Analizador de Valor en Apuestas Deportivas")
 
-if st.sidebar.button("Recargar Datos"):
-    st.cache_data.clear()
-    st.rerun()
+# --- SIDEBAR NAVIGATION ---
+with st.sidebar:
+    u = st.session_state.get('user', {})
+    nick = u.get('username') if u else 'Guest'
+    st.caption(f"👤 Hola, **{nick}**")
+    
+    st.header("Menú Principal")
+    
+    if st.button("🏠 Dashboard", use_container_width=True):
+        st.session_state['view'] = 'main'
+        st.rerun()
+
+    if st.button("📊 Mi Portafolio", use_container_width=True):
+         st.session_state['view'] = 'portfolio'
+         st.rerun()
+
+    if st.button("💰 Balance", use_container_width=True):
+         st.session_state['view'] = 'portfolio'
+         st.rerun()
+
+    if st.button("👥 Mi Perfil", use_container_width=True):
+        st.session_state['view'] = 'profile'
+        st.rerun()
+
+    st.markdown("---")
+    
+    # Logout Button
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
+        st.session_state["authenticated"] = False
+        st.session_state["user"] = None
+        st.rerun()
+
+# Load User Preferences
+user_prefs = st.session_state.get("user_prefs", {})
+default_leagues = ['SP1', 'SP2', 'E0', 'E1', 'D1', 'I1', 'F1', 'P1', 'N1']
+active_leagues = user_prefs.get("leagues", default_leagues)
+active_seasons = user_prefs.get("seasons", ['2526', '2425'])
+
+if not active_leagues:
+    st.sidebar.warning("⚠️ No hay ligas seleccionadas. Ve a 'Mi Perfil' para configurar.")
+    active_leagues = default_leagues # Fallback to prevent crash
 
 
 
 # Call with version 4 (Bumped to force normalization refresh)
-data = load_data(leagues, seasons, version=4)
+data = load_data(active_leagues, active_seasons, version=4)
 # Initialize Predictor Globally for Match View using Cache
 predictor = get_predictor(data)
 
 st.sidebar.info(f"Cargados {len(data)} partidos.")
 
-# ... (CSS section remains same)
+# --- ROUTING: PROFILE VIEW ---
+if st.session_state['view'] == 'profile':
+    render_profile_view(user_manager)
+    st.stop()
+    
+# --- ROUTING: PORTFOLIO VIEW ---
+if st.session_state['view'] == 'portfolio':
+    # Auto-Settle on Load
+    settled = BetSettler.settle_user_bets(user_manager, st.session_state['user']['username'], data)
+    if settled > 0:
+        st.toast(f"✅ {settled} apuestas han sido actualizadas automáticamente!")
+        
+    render_portfolio_view(user_manager, st.session_state['user']['username'])
+    st.stop()
 
-# ... (Routing logic remains same)
+# ... (CSS section remains same)
 
 
 st.markdown("""
@@ -166,26 +263,27 @@ st.markdown("""
     /* --- LAYOUT OPTIMIZATION --- */
     /* Reduce top padding and center content */
     .block-container {
-        padding-top: 1.5rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
-        max-width: 95% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 98% !important;
     }
     
     /* Hide Streamlit Branding */
+    /* Hide Streamlit Branding (Partial) */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* header {visibility: hidden;} */ /* Disabled to allow sidebar toggle */
     
     /* --- CARD STYLING (Containers) --- */
     /* Target Streamlit's native bordered containers */
     [data-testid="stVerticalBlockBorderWrapper"] > div {
-        border-radius: 10px !important;
+        border-radius: 8px !important;
         border: 1px solid rgba(0,0,0,0.05) !important;
         background-color: #FAFAFA !important; /* Subtle contrast */
         box-shadow: none !important;
-        padding: 1rem !important;
+        padding: 0.5rem !important; /* COMPACT PADDING */
     }
     
     /* Dark Mode Support for Containers */
@@ -363,10 +461,11 @@ with tab1:
             
         with f_col2:
             # League Selection (Sub-selection of Sidebar)
+            # League Selection (Sub-selection of Sidebar)
             selected_leagues_tab1 = st.multiselect(
                 "Competiciones", 
-                leagues, 
-                default=leagues, 
+                active_leagues, 
+                default=active_leagues, 
                 format_func=lambda x: league_names.get(x, x),
                 key="tab1_leagues_filter"
             )
@@ -395,29 +494,46 @@ with tab1:
         except:
              db_ts = 0
              
-        upcoming = fetch_upcoming_cached(selected_leagues_tab1, db_ts, cache_bust_v=14)
+        upcoming = fetch_upcoming_cached(selected_leagues_tab1, db_ts, cache_bust_v=17)
+        upcoming = upcoming.copy() # SAFETY COPY
         
         # --- DATE FILTERING ---
         if not upcoming.empty and len(date_range) == 2:
                 start_date, end_date = date_range
-                # Convert 'Date' column to datetime objects for comparison
-                # Date format usually 'dd/mm/yyyy' from football-data/fixtures
+                
                 try:
-                    # Robust Date Parsing
-                    # 1. Coerce to datetime (handles various formats)
-                    # 2. Extract date component
-                    upcoming['DateObj'] = pd.to_datetime(upcoming['Date'], errors='coerce', dayfirst=True).dt.date
+                    upcoming = upcoming.reset_index(drop=True) # Reset Index logic
                     
-                    # Drop invalid dates if any
-                    upcoming = upcoming.dropna(subset=['DateObj'])
+                    # Robust Date Parsing using Timestamps
+                    # 1. Ensure 'Date' is datetime64
+                    upcoming['Date'] = pd.to_datetime(upcoming['Date'], dayfirst=True, errors='coerce')
                     
-                    # Filter
-                    upcoming = upcoming[
-                        (upcoming['DateObj'] >= start_date) & 
-                        (upcoming['DateObj'] <= end_date)
-                    ]
+                    # 2. Normalize to midnight (remove time) AND STRIP TIMEZONE
+                    upcoming['DateNorm'] = upcoming['Date'].dt.normalize().dt.tz_localize(None)
+                    
+                    # 3. Convert filter bounds to Normalized Timestamps (Naive)
+                    ts_start = pd.Timestamp(start_date).normalize().tz_localize(None)
+                    ts_end = pd.Timestamp(end_date).normalize().tz_localize(None)
+                    
+
+                    
+                    # 4. Filter
+                    if ts_start == ts_end:
+                        # Exact Day Match
+                        upcoming = upcoming[upcoming['DateNorm'] == ts_start]
+                    else:
+                        # Range Match
+                        upcoming = upcoming[
+                            (upcoming['DateNorm'] >= ts_start) & 
+                            (upcoming['DateNorm'] <= ts_end)
+                        ]
+                    
                 except Exception as e:
-                    st.warning(f"Error parseando fechas: {e}. Se muestran todos los resultados.")
+                    st.error(f"Error filtrando por fecha: {e}")
+                    # If filter fails, better to show empty than confusing Data Explosion
+                    upcoming = upcoming.iloc[0:0] 
+
+
 
         if not upcoming.empty:
                 st.success(f"Encontrados {len(upcoming)} partidos en el rango seleccionado.")
@@ -665,113 +781,23 @@ with tab1:
                                     patterns = sorted(patterns, key=lambda x: x['prob'], reverse=True)
                                     best_pattern = patterns[0]
                                     
-                                    with st.container(border=True):
-                                        # COMPACT LAYOUT: Header + Body
-                                        
-                                        # 1. Header Line: Match vs | 1X2 | Time
-                                        c_head_1, c_head_2 = st.columns([3, 1])
-                                        with c_head_1:
-                                             st.subheader(f"{row['HomeTeam']} vs {row['AwayTeam']}")
-                                        with c_head_2:
-                                             # Compact time
-                                             date_obj = row['Date']
-                                             date_str = date_obj.strftime('%d/%m') if hasattr(date_obj, 'strftime') else str(date_obj)[5:10]
-                                             st.caption(f"{row['Time']} | {date_str}")
+                                    # Use Shared Component for Consistency & Compactness
+                                    render_premium_match_row(
+                                        row, 
+                                        predictor, 
+                                        None, 
+                                        trends_analyzer_forms, 
+                                        go_to_match, 
+                                        home_trends=None, # Don't overload with generic trends if we have specific strategies
+                                        away_trends=None,
+                                        unique_key=f"hv_{row['HomeTeam']}_{row['AwayTeam']}",
+                                        extra_strategies=patterns,
+                                        strategy_callback=on_strategy_click
+                                    )
+                                    
+                                    # st.divider() # Component adds border/padding, usually enough.
 
-                                        # 2. Main Body: Grid Layout
-                                        # Left: Stats & Prob | Right: Strategies
-                                        c_main_L, c_main_R = st.columns([1, 1])
-                                        
-                                        with c_main_L:
-                                            # Combined 1X2 and Probs to save vertical space
-                                            odds_h = row.get('B365H') or row.get('AvgH')
-                                            odds_d = row.get('B365D') or row.get('AvgD')
-                                            odds_a = row.get('B365A') or row.get('AvgA')
-                                            
-                                            line_1x2 = f"**1:** `{odds_h}` | **X:** `{odds_d}` | **2:** `{odds_a}`" if pd.notna(odds_h) else "Cuotas 1X2 N/A"
-                                            st.markdown(line_1x2)
 
-                                            def to_pct(val): return int(val) if val > 1 else int(val * 100)
-                                            p_home = to_pct(row.get('ML_HomeWin', 0))
-                                            p_draw = to_pct(row.get('ML_Draw', 0))
-                                            p_away = to_pct(row.get('ML_AwayWin', 0))
-                                            
-                                            # Visual Bar for Probs? Or just compact text
-                                            line_ai = f"**Prob. IA:** {p_home}% / {p_draw}% / {p_away}%"
-                                            st.caption(line_ai)
-                                            
-                                            # Score Prediction
-                                            pred_h = int(row.get('REG_HomeGoals', 0))
-                                            pred_a = int(row.get('REG_AwayGoals', 0))
-                                            st.markdown(f"**Predicción:** `{pred_h} - {pred_a}`")
-
-                                        with c_main_R:
-                                            st.caption("Estrategias Activadas:")
-                                            for p in patterns:
-                                                color = "green" if p['prob'] > 75 else "orange"
-                                                odd_str = f" - 💰`{p['odd']}`" if p.get('odd') and p['odd'] != 'N/A' else ""
-                                                # Use HTML for tighter spacing if needed, but markdown is okay
-                                                st.markdown(f":{color}[**{p['suggestion']}**] ({p['prob']}%){odd_str}")
-                                            
-                                        st.divider()
-                                            
-                                            # COMPACT METRICS (Small Font)
-                                        # COMPACT METRICS (Small Font)
-                                        stats = row.get('stats', {})
-                                        bp_name = best_pattern['suggestion']
-                                        
-                                        metric_text = "Datos insuficientes"
-                                        if "Local" in bp_name or "Victoria" in bp_name or "Choque" in bp_name or "Visitante" in bp_name:
-                                            form_h = trends_analyzer_forms.get_recent_form(row['HomeTeam'])
-                                            form_a = trends_analyzer_forms.get_recent_form(row['AwayTeam'])
-                                            metric_text = f"Forma: 🏠 {form_h} | ✈️ {form_a}"
-                                            
-                                        elif "Córner" in bp_name:
-                                            h_for = stats.get('HomeAvgCornersFor', 0)
-                                            h_ag = stats.get('HomeAvgCornersAgainst', 0)
-                                            a_for = stats.get('AwayAvgCornersFor', 0)
-                                            a_ag = stats.get('AwayAvgCornersAgainst', 0)
-                                            metric_text = f"Córners: 🏠 {h_for:.1f}/{h_ag:.1f} | ✈️ {a_for:.1f}/{a_ag:.1f}"
-
-                                        else: # Goles fallback
-                                            h_gf = stats.get('HomeAvgGoalsFor', 0)
-                                            h_ga = stats.get('HomeAvgGoalsAgainst', 0)
-                                            a_gf = stats.get('AwayAvgGoalsFor', 0)
-                                            a_ga = stats.get('AwayAvgGoalsAgainst', 0)
-                                            metric_text = f"Goles: 🏠 {h_gf:.1f}/{h_ga:.1f} | ✈️ {a_gf:.1f}/{a_ga:.1f}"
-                                            
-                                        # Display Metric in Small Font
-                                        st.markdown(f"<span style='font-size:0.8em; color:gray'>{metric_text}</span>", unsafe_allow_html=True)
-                                        
-                                        # BUTTON
-                                        m_data = row.to_dict()
-                                        b_key = f"btn_match_{row['HomeTeam']}_{row['AwayTeam']}_group"
-                                        st.button("Ver Partido ➡️", key=b_key, on_click=go_to_match, args=(m_data,))
-                                            
-                                        if False: # with c3:
-                                            # AI PREDICTION (ML Engine)
-                                            # 1. SHOW PATTERNS (The "Why")
-                                            for p in patterns:
-                                                color = "green" if p['prob'] > 75 else "orange"
-                                                odd_display = f" - 💰 {p['odd']}" if p.get('odd') and p['odd'] != 'N/A' else ""
-                                                st.markdown(f":{color}[**{p['suggestion']}**] ({p['prob']}%){odd_display}")
-                                            
-                                            st.divider()
-
-                                            # 2. SHOW AI PREDICTIONS (Context)
-                                            # 2. SHOW AI PREDICTIONS (Context)
-                                            # Correct Score (Always try to show)
-                                            pred_h_goals = int(row.get('REG_HomeGoals', 0))
-                                            pred_a_goals = int(row.get('REG_AwayGoals', 0))
-                                            
-                                            # COMPACT HEADER: Title + Score
-                                            st.markdown(f"**🧠 Predicción IA:** `{pred_h_goals} - {pred_a_goals}`")
-
-                                            # Win Probs (Moved to C1 text)
-                                            
-                                            # BUTTON TO GO TO MATCH VIEW
-                                            # Button Removed form C3
-                                            pass
 
                                         
 
@@ -889,7 +915,8 @@ with tab1:
                                     go_to_match,
                                     home_trends=h_trends,
                                     away_trends=a_trends,
-                                    unique_key=f"{div}_{idx}" # Unique ID
+                                    unique_key=f"{div}_{idx}", # Unique ID
+                                    strategy_callback=on_strategy_click
                                 )
                     else:
                         # Fallback no Div grouping
@@ -902,7 +929,16 @@ with tab1:
                             h_trends = scanner.scan(h_norm, data, context='home')
                             a_trends = scanner.scan(a_norm, data, context='away')
                             
-                            render_premium_match_row(m_row.to_dict(), predictor, None, trends_analyzer_forms, go_to_match, home_trends=h_trends, away_trends=a_trends)
+                            render_premium_match_row(
+                                m_row.to_dict(), 
+                                predictor, 
+                                None, 
+                                trends_analyzer_forms, 
+                                go_to_match, 
+                                home_trends=h_trends, 
+                                away_trends=a_trends,
+                                strategy_callback=on_strategy_click
+                            )
                 else:
                     st.info("No hay partidos para la fecha seleccionada.")
 
@@ -918,7 +954,7 @@ with tab2:
     
     with col_league:
         # Added key to prevent reset
-        selected_league_h2h = st.selectbox("Seleccionar Competición", leagues, format_func=lambda x: league_names.get(x, x), key="h2h_league_select")
+        selected_league_h2h = st.selectbox("Seleccionar Competición", active_leagues, format_func=lambda x: league_names.get(x, x), key="h2h_league_select")
     
     # Filter data for team list
     league_data = data[data['Div'] == selected_league_h2h]
@@ -1238,6 +1274,7 @@ with tab5:
             with st.spinner("Buscando partidos y analizando tendencias..."):
                 trends_analyzer = TrendsAnalyzer(data)
                 fix_fetcher = FixturesFetcher()
+                leagues = list(fix_fetcher.LEAGUE_URLS.keys())
                 upcoming_daily = fix_fetcher.fetch_upcoming(leagues)
                 
                 # Filter by Date
@@ -1522,7 +1559,8 @@ with tab7:
         with st.spinner("Escaneando calendario y aplicando patrones..."):
             # Fetch ALL leagues or User selection? Default to All for strategies to be useful
             # We reuse the cached fetcher
-            upcoming_strat = fetch_upcoming_cached(sidebar_leagues if 'sidebar_leagues' in locals() else leagues)
+            now_str_hour = datetime.datetime.now().strftime('%Y-%m-%d-%H')
+            upcoming_strat = fetch_upcoming_cached(sidebar_leagues if 'sidebar_leagues' in locals() else leagues, now_str_hour)
             
             if not upcoming_strat.empty:
                 # Filter by Date Range
@@ -1569,7 +1607,7 @@ with tab7:
                             if not is_known:
                                 debug_mismatches.append(f"{match_row['HomeTeam']} ({h_norm}) vs {match_row['AwayTeam']} ({a_norm})")
                             
-                            analysis_row = predictor.predict_match(match_row['HomeTeam'], match_row['AwayTeam'], referee=ref_name)
+                            analysis_row = predictor.predict_match_safe(match_row['HomeTeam'], match_row['AwayTeam'], referee=ref_name)
                             
                             # Check each pattern
                             for name_pat, cond_func, _, _ in PREMATCH_PATTERNS:

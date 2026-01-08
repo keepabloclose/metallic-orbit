@@ -1,0 +1,35 @@
+{
+    "bets": [
+        {
+            "id": "a9b90591",
+            "date": "2026-01-08 13:37:01.125237",
+            "match_date": "2026-01-08 13:37:01.125077",
+            "home_team": "Arsenal",
+            "away_team": "Liverpool",
+            "selection": "Over 2.5",
+            "odds": 2.0,
+            "stake": 50.0,
+            "potential_return": 100.0,
+            "strategy": "YoloStrat",
+            "status": "Won",
+            "result_amount": 0.0
+        },
+        {
+            "id": "fdd5bde7",
+            "date": "2026-01-08 13:37:01.134166",
+            "match_date": "2026-01-08 13:37:01.125077",
+            "home_team": "Arsenal",
+            "away_team": "Liverpool",
+            "selection": "Home Win",
+            "odds": 1.5,
+            "stake": 0.0,
+            "potential_return": 0.0,
+            "strategy": "Tracker",
+            "status": "Won",
+            "result_amount": 0.0
+        }
+    ],
+    "balance": 0.0,
+    "currency": "\u20ac",
+    "created_at": "2026-01-08 13:37:01.125204"
+}

@@ -62,6 +62,7 @@ class LogoManager:
         'Empoli': 'Empoli FC',
         'Genoa': 'Genoa CFC',
         'Torino': 'Torino FC',
+        'Cremonese': 'US Cremonese',
         
         # La Liga
         'Real Madrid': 'Real Madrid CF',
