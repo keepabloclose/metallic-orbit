@@ -1699,14 +1699,45 @@ with tab7:
                                             st.markdown(f"**{m['Home']}** vs **{m['Away']}**")
                                             st.caption(f"📅 {m['Date']} 🕒 {m['Time']} | {m['Div']}")
                                             
-                                            # Key Metric Highlight based on Pattern Name
-                                            if "Goles" in pat_name or ">2.5" in pat_name or "1.5" in pat_name:
-                                                 g_proj = m['Stats'].get('HomeAvgGoalsFor',0) + m['Stats'].get('AwayAvgGoalsFor',0)
-                                                 st.metric("Goles Proy. (Comb)", f"{g_proj:.2f}")
-                                            elif "Local" in pat_name:
-                                                 st.metric("PPG Local", f"{m['Stats'].get('HomePPG',0):.2f}")
-                                            elif "Visitante" in pat_name:
-                                                 st.metric("PPG Visita", f"{m['Stats'].get('AwayPPG',0):.2f}")
+                                            # Custom Betting Card UI
+                                            # Stats Row
+                                            stats_cols = st.columns(2)
+                                            with stats_cols[0]:
+                                                if "Goles" in pat_name or ">2.5" in pat_name or "1.5" in pat_name:
+                                                     g_proj = m['Stats'].get('HomeAvgGoalsFor',0) + m['Stats'].get('AwayAvgGoalsFor',0)
+                                                     st.metric("⚽ Proy.", f"{g_proj:.2f}")
+                                                else:
+                                                     st.metric("🏠 Local PPG", f"{m['Stats'].get('HomePPG',0):.2f}")
+                                            
+                                            with stats_cols[1]:
+                                                if "Goles" in pat_name:
+                                                     st.metric("🛡️ Def. Avg", f"{(m['Stats'].get('HomeAvgGoalsAgainst',0)+m['Stats'].get('AwayAvgGoalsAgainst',0))/2:.2f}")
+                                                else:
+                                                     st.metric("✈️ Visita PPG", f"{m['Stats'].get('AwayPPG',0):.2f}")
+
+                                            st.markdown("---")
+                                            
+                                            # ODDS ROW (The requested fix)
+                                            odds = m['Stats']
+                                            
+                                            # Helper to format
+                                            def fmt_odd(val):
+                                                return f"{val:.2f}" if (val and val > 1) else "-"
+
+                                            # 1X2
+                                            o_cols = st.columns(3)
+                                            with o_cols[0]: st.markdown(f"**1:** `{fmt_odd(odds.get('B365H'))}`")
+                                            with o_cols[1]: st.markdown(f"**X:** `{fmt_odd(odds.get('B365D'))}`")
+                                            with o_cols[2]: st.markdown(f"**2:** `{fmt_odd(odds.get('B365A'))}`")
+                                            
+                                            # Extra Markets
+                                            e_cols = st.columns(2)
+                                            with e_cols[0]: st.caption(f"**>2.5**: `{fmt_odd(odds.get('B365>2.5'))}`")
+                                            with e_cols[1]: st.caption(f"**BTTS**: `{fmt_odd(odds.get('B365_BTTS_Yes'))}`")
+                                            
+                                            # Action Button
+                                            if st.button("➕ Añadir", key=f"btn_add_{i}_{pat_name}_{m['Home']}"):
+                                                on_strategy_click(m['Stats'], {'name': pat_name})
                                             
                     if not found_any:
                         st.warning("No se encontraron coincidencias para ninguna estrategia en este rango de fechas.")
