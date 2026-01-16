@@ -18,6 +18,12 @@ class NameNormalizer:
             return str(name)
         
         name = name.strip()
+        # Handle Non-Breaking Spaces (often in CSVs)
+        name = name.replace('\xa0', ' ')
+        
+        # Case insensitive check (heuristic)
+        # We'll stick to exact mapping for now but cleaned
+        
         
         # Extended Mapping for SUPPORTED LEAGUES
         mapping = {
