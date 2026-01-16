@@ -57,10 +57,10 @@ class FixturesFetcher:
                     df['Div'] = league_code
                     
                     # Filter for future matches
-                    # Relaxed Filter: Include games from last 4 hours (Live/Just Started)
-                    # This fixes the issue where "Today's" games disappear once they start
-                    cutoff_time = now_utc - pd.Timedelta(hours=4)
-                    future = df[df['Date'] > cutoff_time].sort_values('Date').head(15)
+                    # Relaxed Filter: Include ALL games from the start of the current UTC day
+                    # This ensures Today's games (and odds) are visible regardless of time
+                    cutoff_time = now_utc.normalize() # Midnight UTC
+                    future = df[df['Date'] >= cutoff_time].sort_values('Date').head(15)
                     
                     upcoming_matches.append(future)
                     current_league_success = True
