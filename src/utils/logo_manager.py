@@ -98,6 +98,18 @@ class LogoManager:
         'Lyon': 'Olympique Lyonnais',
         'Monaco': 'AS Monaco',
         'Lille': 'LOSC Lille',
+        'Paris SG': 'Paris Saint-Germain', # FIX
+        'Lorient': 'FC Lorient', # FIX
+        'West Brom': 'West Bromwich Albion', # FIX
+        'Middlesbrough': 'Middlesbrough FC', # FIX
+        'Ein Frankfurt': 'Eintracht Frankfurt', # FIX
+        'Pisa': 'Pisa SC', # FIX
+        'Espanyol': 'RCD Espanyol', # FIX
+        'Girona': 'Girona FC', # FIX
+        'Alaves': 'Deportivo Alaves', # FIX
+        'Las Palmas': 'UD Las Palmas', # FIX
+        'Leganes': 'CD Leganes', # FIX
+        'Valladolid': 'Real Valladolid', # FIX
     }
     
     # Hardcoded URLs for teams where repo is missing/broken
