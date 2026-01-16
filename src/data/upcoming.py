@@ -36,7 +36,8 @@ class FixturesFetcher:
             current_league_success = False
 
             try:
-                response = requests.get(url, verify=False) # Skip SSL verify if needed
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                response = requests.get(url, headers=headers, verify=False) # Skip SSL verify if needed
                 if response.status_code == 200:
                     df = pd.read_csv(io.StringIO(response.content.decode('utf-8')))
                     # Columns usually: Match Number, Round Number, Date, Location, Home Team, Away Team, Result
