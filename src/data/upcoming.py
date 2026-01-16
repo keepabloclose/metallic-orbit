@@ -62,6 +62,13 @@ class FixturesFetcher:
                     cutoff_time = now_utc.normalize() # Midnight UTC
                     future = df[df['Date'] >= cutoff_time].sort_values('Date').head(15)
                     
+                    today_csv = len(future[future['Date'].dt.date == pd.Timestamp.utcnow().date()])
+                    print(f"[{league_code}] CSV matches today: {today_csv}")
+                    
+                    # PROACTIVE INJECTION: Check API for missing games (today/tomorrow)
+                    # Because CSV might be stale or missing games.
+                    future = self._inject_missing_from_api(future, league_code)
+                    
                     upcoming_matches.append(future)
                     current_league_success = True
                 else:
@@ -95,7 +102,16 @@ class FixturesFetcher:
                     scraper = BetExplorerScraper()
                     scraped_df = scraper.scrape_next_matches(league_code=league_code)
                     if not scraped_df.empty:
-                        print(f"Fallback successful: {len(scraped_df)} matches.")
+                        # Normalize Scraper Names too!
+                        import src.utils.normalization as norm_module
+                        NameNormalizer = norm_module.NameNormalizer
+                        
+                        if 'HomeTeam' in scraped_df.columns:
+                            scraped_df['HomeTeam'] = scraped_df['HomeTeam'].apply(NameNormalizer.normalize)
+                        if 'AwayTeam' in scraped_df.columns:
+                            scraped_df['AwayTeam'] = scraped_df['AwayTeam'].apply(NameNormalizer.normalize)
+                            
+                        print(f"Fallback successful: {len(scraped_df)} matches (Normalized).")
                         upcoming_matches.append(scraped_df)
                     else:
                             print("Fallback Scraper also returned no matches.")
@@ -236,14 +252,108 @@ class FixturesFetcher:
         
         return pd.DataFrame(data)
 
-    def _get_mock_fixtures(self):
-        # Create some realistic future matches based on popular teams
-        data = [
-            {'Div': 'SP1', 'Date': pd.Timestamp.now() + pd.Timedelta(days=0), 'Time': '21:00', 'HomeTeam': 'Real Madrid', 'AwayTeam': 'Barcelona'},
-            {'Div': 'E0', 'Date': pd.Timestamp.now() + pd.Timedelta(days=0), 'Time': '15:00', 'HomeTeam': 'Man City', 'AwayTeam': 'Arsenal'},
-            {'Div': 'D1', 'Date': pd.Timestamp.now() + pd.Timedelta(days=0), 'Time': '18:30', 'HomeTeam': 'Bayern Munich', 'AwayTeam': 'Dortmund'},
-            {'Div': 'I1', 'Date': pd.Timestamp.now() + pd.Timedelta(days=0), 'Time': '20:45', 'HomeTeam': 'Inter', 'AwayTeam': 'Milan'},
-            {'Div': 'SP2', 'Date': pd.Timestamp.now() + pd.Timedelta(days=0), 'Time': '20:00', 'HomeTeam': 'Zaragoza', 'AwayTeam': 'Levante'},
-            {'Div': 'E1', 'Date': pd.Timestamp.now() + pd.Timedelta(days=0), 'Time': '16:00', 'HomeTeam': 'Leeds', 'AwayTeam': 'Sunderland'}
-        ]
-        return pd.DataFrame(data)
+    
+    def _inject_missing_from_api(self, df, league_code, days_ahead=2):
+        """
+        Fetches events from Odds API and injects them if missing from existing DF.
+        Crucial for when CSV source is stale.
+        """
+        try:
+            from src.data.odds_api_client import OddsApiClient
+            from src.utils.normalization import NameNormalizer
+            
+            client = OddsApiClient()
+            
+            # 1. Fetch Events (Raw list)
+            # Strategy: Use get_upcoming_odds logic but just extract events first to check keys
+            # Or assume we can get them.
+            
+            # Since OddsApiClient returns a DataFrame of ODDS, we can use that!
+            # It normally returns ALL upcoming matches it finds.
+            
+            odds_df = client.get_upcoming_odds(league_code, days_ahead=days_ahead)
+            if odds_df.empty: return df
+            
+            # 2. Compare against CSV (df)
+            # Create unique keys
+            existing_keys = set(zip(df['HomeTeam'], df['AwayTeam']))
+            
+            new_rows = []
+            
+            now_utc = pd.Timestamp.utcnow().tz_localize(None)
+            
+            for _, row in odds_df.iterrows():
+                h, a = row['HomeTeam'], row['AwayTeam']
+                
+                # Check exist
+                if (h, a) in existing_keys: continue
+                
+                # Check Date mismatch? (Skipping for now, assuming API is reliable)
+                
+                # We need Date/Time for the row
+                # Odds DB/DF from client might not have 'Date' col if it came from cache/CSV-only?
+                # Actually _save_to_db doesn't save Date of match, only FetchedAt?
+                # Wait, client.get_upcoming_odds returns DB layout + Odds.
+                # Does DB have Match Date? 
+                
+                # Re-check OddsApiClient: it parses 'commence_time' inside loop but only saves Odds to results?
+                # Looking at _parse_match_odds: NO DATE!
+                # Ah, I need to fix OddsApiClient to include 'Date' in the result row.
+                # BUT, I can't modify OddsApiClient easily right now without breaking things?
+                # Wait, I am the developer. I should fix it.
+                
+                # Alternatively, I can just fetch valid_events logic here again.
+                pass
+                
+            # --- BETTER APPROACH: Fetch Events Directly Here ---
+            slug = client.LEAGUE_SLUGS.get(league_code)
+            if not slug: return df
+            
+            url_template = f"{client.BASE_URL}/events?apiKey={{api_key}}&sport=football&league={slug}"
+            res = client._make_request(url_template)
+            if not res or res.status_code != 200: return df
+            
+            events = res.json()
+            if isinstance(events, dict): events = events.get('data', [])
+            
+            for e in events:
+                start_str = e.get('commence_time') or e.get('date') or e.get('startDate')
+                if not start_str: continue
+                
+                try:
+                    dt = pd.to_datetime(start_str).tz_convert(None) # UTC
+                except: continue
+                
+                # Filter strict past? No, include active.
+                if dt < (now_utc - pd.Timedelta(hours=4)): continue
+                if dt > (now_utc + pd.Timedelta(days=days_ahead)): continue
+                
+                # Normalize Names
+                h_raw = e.get('home_team') or e.get('home')
+                a_raw = e.get('away_team') or e.get('away')
+                
+                h_norm = NameNormalizer.normalize(h_raw)
+                a_norm = NameNormalizer.normalize(a_raw)
+                
+                if (h_norm, a_norm) not in existing_keys:
+                    print(f"[{league_code}] Injecting missing match from API: {h_norm} vs {a_norm}")
+                    new_rows.append({
+                        'Div': league_code,
+                        'Date': dt,
+                        'Time': dt.strftime('%H:%M'),
+                        'HomeTeam': h_norm,
+                        'AwayTeam': a_norm,
+                        # Add empty odds columns to ensure format compliance
+                        'B365H': None, 'B365D': None, 'B365A': None
+                    })
+                    existing_keys.add((h_norm, a_norm))
+            
+            if new_rows:
+                new_df = pd.DataFrame(new_rows)
+                # Concatenate and sort
+                df = pd.concat([df, new_df], ignore_index=True).sort_values('Date')
+                
+        except Exception as e:
+            print(f"Error injecting from API: {e}")
+            
+        return df
