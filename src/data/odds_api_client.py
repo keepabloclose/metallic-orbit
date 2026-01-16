@@ -535,9 +535,9 @@ class OddsApiClient:
                 try: return float(v)
                 except: return None
             
-            row = {
                 'HomeTeam': home_team,
                 'AwayTeam': away_team,
+                'Date': item.get('commence_time'), # CRITICAL: Needed for Injection
                 'B365H': clean(b365_h),
                 'B365D': clean(b365_d),
                 'B365A': clean(b365_a),
