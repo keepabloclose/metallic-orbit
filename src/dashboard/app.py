@@ -494,8 +494,17 @@ with tab1:
 
         if os.path.exists(CACHE_FILE):
              try:
-                 with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                     bk_data = json.load(f)
+                 # Check freshness (TTL: 2 hours)
+                 import time
+                 mtime = os.path.getmtime(CACHE_FILE)
+                 age_hours = (time.time() - mtime) / 3600
+                 
+                 if age_hours > 2.0:
+                     # print(f"Cache expired ({age_hours:.1f}h). Ignoring.")
+                     bk_data = None
+                 else:
+                     with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                         bk_data = json.load(f)
                      if bk_data and 'matches' in bk_data:
                          st.toast(f"⚡ Datos cargados del Backend ({bk_data['metadata']['last_updated']})")
                          backend_matches = pd.DataFrame(bk_data['matches'])
