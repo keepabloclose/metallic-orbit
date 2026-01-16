@@ -135,7 +135,7 @@ def go_to_match(match_data):
     st.session_state['selected_match'] = match_data
 
 @st.cache_data(ttl=300) # Reduced to 5 mins
-def fetch_upcoming_cached(leagues, _last_updated, cache_bust_v=10): # Increment to 10
+def fetch_upcoming_cached(leagues, _last_updated, cache_bust_v=11): # Increment to 11
     # _last_updated is a dummy arg to force cache invalidation when DB changes
     fetcher = FixturesFetcher()
     return fetcher.fetch_upcoming(leagues)
