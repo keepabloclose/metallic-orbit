@@ -1589,7 +1589,7 @@ with tab7:
             backend_data = None
             CACHE_FILE = "data_cache/dashboard_data.json"
             
-            if os.path.exists(CACHE_FILE):
+            if False: # FORCE DISABLE CACHE (Use Live Logic)
                 try:
                     with open(CACHE_FILE, 'r', encoding='utf-8') as f:
                         backend_data = json.load(f)
