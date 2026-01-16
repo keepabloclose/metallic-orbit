@@ -337,23 +337,4 @@ class FixturesFetcher:
         except Exception as e:
             print(f"Injection Error {league_code}: {e}")
             return df
-                    new_rows.append({
-                        'Div': league_code,
-                        'Date': dt,
-                        'Time': dt.strftime('%H:%M'),
-                        'HomeTeam': h_norm,
-                        'AwayTeam': a_norm,
-                        # Add empty odds columns to ensure format compliance
-                        'B365H': None, 'B365D': None, 'B365A': None
-                    })
-                    existing_keys.add((h_norm, a_norm))
-            
-            if new_rows:
-                new_df = pd.DataFrame(new_rows)
-                # Concatenate and sort
-                df = pd.concat([df, new_df], ignore_index=True).sort_values('Date')
-                
-        except Exception as e:
-            print(f"Error injecting from API: {e}")
-            
-        return df
+
