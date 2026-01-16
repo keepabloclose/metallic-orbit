@@ -499,7 +499,8 @@ with tab1:
                  mtime = os.path.getmtime(CACHE_FILE)
                  age_hours = (time.time() - mtime) / 3600
                  
-                 if age_hours > 2.0:
+                 # FORCE DISABLE CACHE FOR DEBUGGING
+                 if True: # was age_hours > 2.0
                      # print(f"Cache expired ({age_hours:.1f}h). Ignoring.")
                      bk_data = None
                  else:

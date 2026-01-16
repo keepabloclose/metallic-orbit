@@ -26,6 +26,16 @@ class NameNormalizer:
         
         
         # Extended Mapping for SUPPORTED LEAGUES
+        
+        # HEURISTIC/FUZZY PRE-CHECK
+        # Catch hard-to-match names (unicode, weird spaces) BEFORE dictionary
+        n_lower = name.lower()
+        if 'paris' in n_lower and 'germain' in n_lower: return 'Paris SG'
+        if 'monaco' in n_lower and 'as' in n_lower: return 'Monaco' # AS Monaco
+        if 'lorient' in n_lower: return 'Lorient'
+        if 'lille' in n_lower: return 'Lille'
+        if 'west brom' in n_lower: return 'West Brom'
+        
         mapping = {
             # --- SPAIN (SP1, SP2) ---
             'Rayo Vallecano': 'Vallecano',
