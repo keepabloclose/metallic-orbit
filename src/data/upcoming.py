@@ -68,7 +68,7 @@ class FixturesFetcher:
                     
                     # PROACTIVE INJECTION: Check API for missing games (today/tomorrow)
                     # Because CSV might be stale or missing games.
-                    future = self._inject_missing_from_api(future, league_code)
+                    future = self._inject_missing_from_api(future, league_code, days_ahead=6)
                     
                     upcoming_matches.append(future)
                     current_league_success = True
