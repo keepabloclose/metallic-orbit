@@ -283,61 +283,60 @@ class FixturesFetcher:
             
             now_utc = pd.Timestamp.utcnow().tz_localize(None)
             
+            # 2. Iterate and Inject
             for _, row in odds_df.iterrows():
-                h, a = row['HomeTeam'], row['AwayTeam']
+                h_norm = row['HomeTeam']
+                a_norm = row['AwayTeam']
                 
                 # Check exist
-                if (h, a) in existing_keys: continue
+                if (h_norm, a_norm) in existing_keys: continue
                 
-                # Check Date mismatch? (Skipping for now, assuming API is reliable)
-                
-                # We need Date/Time for the row
-                # Odds DB/DF from client might not have 'Date' col if it came from cache/CSV-only?
-                # Actually _save_to_db doesn't save Date of match, only FetchedAt?
-                # Wait, client.get_upcoming_odds returns DB layout + Odds.
-                # Does DB have Match Date? 
-                
-                # Re-check OddsApiClient: it parses 'commence_time' inside loop but only saves Odds to results?
-                # Looking at _parse_match_odds: NO DATE!
-                # Ah, I need to fix OddsApiClient to include 'Date' in the result row.
-                # BUT, I can't modify OddsApiClient easily right now without breaking things?
-                # Wait, I am the developer. I should fix it.
-                
-                # Alternatively, I can just fetch valid_events logic here again.
-                pass
-                
-            # --- BETTER APPROACH: Fetch Events Directly Here ---
-            slug = client.LEAGUE_SLUGS.get(league_code)
-            if not slug: return df
-            
-            url_template = f"{client.BASE_URL}/events?apiKey={{api_key}}&sport=football&league={slug}"
-            res = client._make_request(url_template)
-            if not res or res.status_code != 200: return df
-            
-            events = res.json()
-            if isinstance(events, dict): events = events.get('data', [])
-            
-            for e in events:
-                start_str = e.get('commence_time') or e.get('date') or e.get('startDate')
-                if not start_str: continue
+                # Check Date
+                date_str = row.get('Date')
+                if not date_str: continue
                 
                 try:
-                    dt = pd.to_datetime(start_str).tz_convert(None) # UTC
+                    dt = pd.to_datetime(date_str).tz_convert(None) # UTC
                 except: continue
                 
-                # Filter strict past? No, include active.
+                # Filter (Active & Within limit)
+                # Note: get_upcoming_odds already filters by days_ahead mostly, but double check
                 if dt < (now_utc - pd.Timedelta(hours=4)): continue
-                if dt > (now_utc + pd.Timedelta(days=days_ahead)): continue
+                if dt > (now_utc + pd.Timedelta(days=days_ahead + 1)): continue 
+
+                print(f"[{league_code}] Injecting missing match (+Odds): {h_norm} vs {a_norm}")
                 
-                # Normalize Names
-                h_raw = e.get('home_team') or e.get('home')
-                a_raw = e.get('away_team') or e.get('away')
+                # Create Row
+                new_row = {
+                    'Div': league_code,
+                    'Date': dt,
+                    'Time': dt.strftime('%H:%M'),
+                    'HomeTeam': h_norm,
+                    'AwayTeam': a_norm,
+                    'FTHG': None, 'FTAG': None, 'FTR': None,
+                    'B365H': row.get('B365H'),
+                    'B365D': row.get('B365D'),
+                    'B365A': row.get('B365A'),
+                    'B365_BTTS_Yes': row.get('B365_BTTS_Yes'),
+                    'B365_BTTS_No': row.get('B365_BTTS_No')
+                }
                 
-                h_norm = NameNormalizer.normalize(h_raw)
-                a_norm = NameNormalizer.normalize(a_raw)
-                
-                if (h_norm, a_norm) not in existing_keys:
-                    print(f"[{league_code}] Injecting missing match from API: {h_norm} vs {a_norm}")
+                # Add Totals if present in row
+                for k, v in row.items():
+                    if str(k).startswith('B365_') and k not in new_row:
+                        new_row[k] = v
+                        
+                new_rows.append(new_row)
+
+            if new_rows:
+                print(f"[{league_code}] Injected {len(new_rows)} matches.")
+                return pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+            
+            return df
+
+        except Exception as e:
+            print(f"Injection Error {league_code}: {e}")
+            return df
                     new_rows.append({
                         'Div': league_code,
                         'Date': dt,
