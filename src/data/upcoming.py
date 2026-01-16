@@ -57,10 +57,10 @@ class FixturesFetcher:
                     df['Div'] = league_code
                     
                     # Filter for future matches
-                    # STRICT FILTER: Future matches only (compare vs UTC now) because CSV is GMT
-                    # This ensures we don't fetch "Live" odds for in-play games
-                    now_utc = pd.Timestamp.utcnow().tz_localize(None)
-                    future = df[df['Date'] > now_utc].sort_values('Date').head(15)
+                    # Relaxed Filter: Include games from last 4 hours (Live/Just Started)
+                    # This fixes the issue where "Today's" games disappear once they start
+                    cutoff_time = now_utc - pd.Timedelta(hours=4)
+                    future = df[df['Date'] > cutoff_time].sort_values('Date').head(15)
                     
                     upcoming_matches.append(future)
                     current_league_success = True
