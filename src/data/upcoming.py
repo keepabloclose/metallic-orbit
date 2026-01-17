@@ -301,12 +301,16 @@ class FixturesFetcher:
             for _, row in odds_df.iterrows():
                 h_norm = row['HomeTeam']
                 a_norm = row['AwayTeam']
+                # print(f"DEBUG: Check {h_norm} vs {a_norm}")
                 
                 # Check exist
-                if (h_norm, a_norm) in existing_keys: continue
+                if (h_norm, a_norm) in existing_keys: 
+                    # print("Skipped: Exists")
+                    continue
                 
                 # Check Date
                 date_str = row.get('Date')
+                # print(f"DEBUG: DateStr: {date_str}")
                 if not date_str: continue
                 
                 try:
