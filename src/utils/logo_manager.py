@@ -110,6 +110,30 @@ class LogoManager:
         'Las Palmas': 'UD Las Palmas', # FIX
         'Leganes': 'CD Leganes', # FIX
         'Valladolid': 'Real Valladolid', # FIX
+        'Nottm Forest': 'Nottingham Forest',
+        'Leeds': 'Leeds United',
+        'Leicester': 'Leicester City',
+        'Sheffield Utd': 'Sheffield United',
+        'Newcastle': 'Newcastle United',
+        'Wolves': 'Wolverhampton Wanderers',
+        'Man City': 'Manchester City',
+        'Southampton': 'Southampton FC',
+        'Ipswich': 'Ipswich Town',
+        'Brighton': 'Brighton & Hove Albion',
+        'Crystal Palace': 'Crystal Palace FC',
+        'Tottenham': 'Tottenham Hotspur',
+        'West Ham': 'West Ham United',
+        'R. Vallecano': 'Rayo Vallecano',
+        'Bilbao': 'Athletic Bilbao',
+        'Atl. Madrid': 'Atletico Madrid',
+        'Sociedad': 'Real Sociedad',
+        'Betis': 'Real Betis',
+        'Mallorca': 'RCD Mallorca',
+        'Osasuna': 'CA Osasuna',
+        'Sevilla': 'Sevilla FC',
+        'Celta': 'Celta Vigo',
+        'Villarreal': 'Villarreal CF',
+        'Valencia': 'Valencia CF',
     }
     
     # Hardcoded URLs for teams where repo is missing/broken
