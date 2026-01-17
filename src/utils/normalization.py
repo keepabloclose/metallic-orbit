@@ -237,8 +237,9 @@ class NameNormalizer:
             'Real Sociedad San Sebastian': 'Sociedad',
             'Real Sociedad San Sebastian B': 'Sociedad B',
             'Valladolid': 'Real Valladolid', # FIX
-            'FC Koln': '1.FC Koln', # FIX Badge - This entry was misplaced in the instruction, but applied faithfully.
-            'Mainz': '1.FSV Mainz 05', # FIX Badge - This entry was misplaced in the instruction, but applied faithfully.
+            # Correct mappings for History Match (Not Logo Filenames)
+            'FC Koln': 'FC Koln', 
+            'Mainz': 'Mainz',
             'Albacete Balompie': 'Albacete',
             'CD Castellon': 'Castellon',
             'RC Deportivo La Coruna': 'Dep. La Coruna',
