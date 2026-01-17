@@ -110,6 +110,8 @@ class LogoManager:
         'Las Palmas': 'UD Las Palmas', # FIX
         'Leganes': 'CD Leganes', # FIX
         'Valladolid': 'Real Valladolid', # FIX
+        'FC Koln': '1.FC Koln',
+        'Mainz': '1.FSV Mainz 05',
         'Nottm Forest': 'Nottingham Forest',
         'Leeds': 'Leeds United',
         'Leicester': 'Leicester City',
