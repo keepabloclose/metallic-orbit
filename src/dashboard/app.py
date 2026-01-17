@@ -1391,7 +1391,35 @@ with tab5:
                                 st.divider()
                                 st.caption("⚔️ H2H:")
                                 # (Could add basic H2H stats here if needed)
-                                st.markdown(f"<span style='color:grey; font-size:0.8em'>Enfrentamientos previos no disponibles en vista rápida.</span>", unsafe_allow_html=True)
+                                # H2H Mini-Section
+                                st.divider()
+                                st.caption("⚔️ H2H (Últimos 5):")
+                                
+                                # Fetch H2H Dynamically
+                                if not data.empty:
+                                    # Normalize names for lookup (redundant if data is norm, but safe)
+                                    h2h = data[((data['HomeTeam'] == h_team) & (data['AwayTeam'] == a_team)) | 
+                                               ((data['HomeTeam'] == a_team) & (data['AwayTeam'] == h_team))]
+                                    
+                                    # Sort by date descending
+                                    if 'Date' in h2h.columns:
+                                        h2h['DateObj'] = pd.to_datetime(h2h['Date'], dayfirst=True)
+                                        h2h = h2h.sort_values('DateObj', ascending=False).head(5)
+                                    else:
+                                        h2h = h2h.head(5)
+
+                                    if not h2h.empty:
+                                        for _, hmatch in h2h.iterrows():
+                                            d_str = hmatch['DateObj'].strftime('%d/%m/%y') if pd.notna(hmatch.get('DateObj')) else '?'
+                                            res = f"{hmatch['FTHG']}-{hmatch['FTAG']}"
+                                            # Bold the winner
+                                            res_fmt = f"**{res}**"
+                                            # Determine colors?
+                                            st.markdown(f"<small>{d_str}: {hmatch['HomeTeam']} {res_fmt} {hmatch['AwayTeam']}</small>", unsafe_allow_html=True)
+                                    else:
+                                        st.caption("No hay enfretamientos previos recientes.")
+                                else:
+                                    st.caption("Datos históricos no cargados.")
 
             else:
                  st.info(f"No hay partidos para la fecha {selected_date_trends} con los filtros actuales.")
