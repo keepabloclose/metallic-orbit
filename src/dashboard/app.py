@@ -1685,7 +1685,16 @@ with tab7:
                         if not is_known:
                             debug_mismatches.append(f"{match_row['HomeTeam']} ({h_norm}) vs {match_row['AwayTeam']} ({a_norm})")
                         
-                        analysis_row = predictor.predict_match_safe(match_row['HomeTeam'], match_row['AwayTeam'], referee=ref_name)
+                        # Extract Odds from match_row (Important for injected matches)
+                        current_odds = {k: v for k, v in match_row.items() if str(k).startswith('B365')}
+                        
+                        analysis_row = predictor.predict_match_safe(
+                            match_row['HomeTeam'], 
+                            match_row['AwayTeam'], 
+                            referee=ref_name,
+                            match_date=match_row.get('Date'),
+                            known_odds=current_odds
+                        )
                         
                         # Check each pattern
                         for name_pat, cond_func, _, _ in PREMATCH_PATTERNS:
