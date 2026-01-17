@@ -313,6 +313,8 @@ class FixturesFetcher:
                     dt = pd.to_datetime(date_str).tz_convert(None) # UTC
                 except: continue
                 
+                if pd.isna(dt): continue # Handle failures
+                
                 # Filter (Active & Within limit)
                 # Note: get_upcoming_odds already filters by days_ahead mostly, but double check
                 if dt < (now_utc - pd.Timedelta(hours=4)): continue
