@@ -81,23 +81,37 @@ class FixturesFetcher:
             if not current_league_success:
                 print(f"CSV fetch failed for {slug}. trying Fallback...")
                 
+                # Generic Scraper Fallback
+                print(f"CSV fetch failed for {slug}. trying Fallback...")
+                
                 # SPECIAL OVERRIDE FOR SP2 (User Request "Jornada 20")
                 if league_code == 'SP2':
                     print("Using Manual Injection for SP2 (Jornada 20)")
                     manual_sp2 = self._get_manual_sp2_fixtures()
                     
                     # Check if valid for future?
-                    # If all manual matches are in the past, they will be filtered out later anyway.
-                    # But we want to try Scraper if manual is stale.
                     now_utc = pd.Timestamp.utcnow().tz_localize(None)
                     if manual_sp2[manual_sp2['Date'] > now_utc].empty:
-                        print("Manual SP2 data is stale (all past). Trying Scraper...")
-                        # Proceed to scraper block below
+                        print("Manual SP2 data is stale. Trying Scraper...")
                     else:
                         upcoming_matches.append(manual_sp2)
-                        continue # Skip scraper if manual has future matches
+                        continue 
+                        
+                # NEW: Try API Injection First (Empty DF)
+                # If CSV is down, we can still build the schedule from API!
+                try:
+                    empty_df = pd.DataFrame(columns=['Date', 'Time', 'HomeTeam', 'AwayTeam', 'Div'])
+                    injected_df = self._inject_missing_from_api(empty_df, league_code, days_ahead=6)
+                    
+                    if not injected_df.empty:
+                        print(f"[{league_code}] Recovered {len(injected_df)} matches via API Injection (CSV Fallback).")
+                        upcoming_matches.append(injected_df)
+                        current_league_success = True
+                        continue # Skip scraper
+                except Exception as e:
+                    print(f"API Fallback Injection failed: {e}")
 
-                # Generic Scraper Fallback
+                # If API also failed/empty, proceed to Scraper...
                 try:
                     from src.data.scraper import BetExplorerScraper
                     scraper = BetExplorerScraper()
