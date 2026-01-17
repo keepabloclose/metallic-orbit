@@ -1771,7 +1771,9 @@ with tab7:
                                             with e_cols[1]: st.caption(f"**BTTS**: `{fmt_odd(odds.get('B365_BTTS_Yes'))}`")
                                             
                                             # Action Button
-                                            if st.button("➕ Añadir", key=f"btn_add_{i}_{pat_name}_{m['Home']}"):
+                                            # Fix Duplicate Key Error by making key highly specific
+                                            btn_key = f"btn_add_{pat_name}_{m['Home']}_{m['Away']}_{m['Date']}_{i}"
+                                            if st.button("➕ Añadir", key=btn_key):
                                                 on_strategy_click(m['Stats'], {'name': pat_name})
                                             
                     if not found_any:
