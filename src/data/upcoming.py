@@ -23,6 +23,7 @@ class FixturesFetcher:
 
     def fetch_upcoming(self, leagues=['E0', 'SP1']):
         upcoming_matches = []
+        now_utc = pd.Timestamp.utcnow().tz_localize(None) # Fix NameError
         
         for league_code in leagues:
             if league_code not in self.LEAGUE_URLS:
